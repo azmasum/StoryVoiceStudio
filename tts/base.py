@@ -1,4 +1,4 @@
-"""TTS provider abstraction.
+﻿"""TTS provider abstraction.
 
 Never hard-code the application around a single TTS model - every engine
 plugs in through :class:`TTSProvider`.
@@ -21,6 +21,8 @@ class VoiceInfo:
     commercial_use: bool
     model_size_mb: float
     sample_rate: int = 22050
+    language: str = "en-US"          # display label, e.g. "bn-BD (Bengali)"
+    speakers: tuple[tuple[str, int], ...] | None = None  # (name, speaker_id)
 
     def to_dict(self) -> dict:
         return {
@@ -33,6 +35,7 @@ class VoiceInfo:
             "commercial_use": self.commercial_use,
             "model_size_mb": self.model_size_mb,
             "sample_rate": self.sample_rate,
+            "language": self.language,
         }
 
 
@@ -114,3 +117,4 @@ class TTSProvider(ABC):
 
     @abstractmethod
     def get_capabilities(self) -> ProviderCapabilities: ...
+

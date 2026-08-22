@@ -40,11 +40,15 @@ class ControlsPanel(QWidget):
         self.voice_label = QLabel()
         self._reload_voices()
         self._update_voice_info()
-        self.voice_combo.currentIndexChanged.connect(self._update_voice_info)
+        self.voice_combo.currentIndexChanged.connect(self._on_voice_changed)
         self.voice_combo.currentIndexChanged.connect(self.settings_changed)
         refresh_btn = QPushButton("Refresh")
         refresh_btn.clicked.connect(self._reload_voices)
-        voice_form.addRow("US English voices:", self.voice_combo)
+        voice_form.addRow("Voices:", self.voice_combo)
+        self.speaker_combo = QComboBox()
+        self.speaker_combo.currentIndexChanged.connect(self.settings_changed)
+        self.speaker_combo.setEnabled(False)
+        voice_form.addRow("Speaker:", self.speaker_combo)
         voice_form.addRow(self.voice_label)
         voice_form.addRow(refresh_btn)
         self.voice_lock = QCheckBox("VOICE LOCK (consistent voice across chunks)")
@@ -201,6 +205,29 @@ class ControlsPanel(QWidget):
             self.music_enabled.setChecked(True)
             self.settings_changed.emit()
 
+    def _on_voice_changed(self) -> None:
+        self._update_voice_info()
+        self._reload_speakers()
+
+    def _reload_speakers(self) -> None:
+        """Populate the speaker picker for multi-speaker voices."""
+        from tts.voices.catalog import get_speakers
+
+        speakers = get_speakers(self.current_voice_id())
+        self.speaker_combo.blockSignals(True)
+        self.speaker_combo.clear()
+        if speakers:
+            for name, sid in speakers:
+                self.speaker_combo.addItem(f"Speaker {sid + 1} ({name})", sid)
+            self.speaker_combo.setEnabled(True)
+        else:
+            self.speaker_combo.setEnabled(False)
+        self.speaker_combo.blockSignals(False)
+
+    def current_speaker_id(self) -> int | None:
+        data = self.speaker_combo.currentData()
+        return int(data) if self.speaker_combo.isEnabled() and data is not None else None
+
     def current_voice_id(self) -> str:
         data = self.voice_combo.currentData()
         return str(data) if data else "en_US-lessac-medium"
@@ -209,6 +236,11 @@ class ControlsPanel(QWidget):
         index = self.voice_combo.findData(settings.voice_id)
         if index >= 0:
             self.voice_combo.setCurrentIndex(index)
+        self._reload_speakers()
+        if settings.speaker_id is not None:
+            sid = self.speaker_combo.findData(settings.speaker_id)
+            if sid >= 0:
+                self.speaker_combo.setCurrentIndex(sid)
         index = self.preset_combo.findData(settings.preset)
         if index >= 0:
             self.preset_combo.setCurrentIndex(index)
@@ -228,6 +260,7 @@ class ControlsPanel(QWidget):
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
         return GenerationSettings(
             voice_id=self.current_voice_id(),
+            speaker_id=self.current_speaker_id(),
             target_wpm=int(self.wpm_spin.value()),
             preset=self.preset_combo.currentData() or DEFAULT_PRESET,
             auto_emotion=self.auto_emotion.isChecked(),

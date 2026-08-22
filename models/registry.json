@@ -29,7 +29,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/lessac/medium",
       "size_mb_estimate": 63,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-amy-medium",
@@ -44,7 +47,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/amy/medium",
       "size_mb_estimate": 63,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-hfc_female-medium",
@@ -59,7 +65,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/hfc_female/medium",
       "size_mb_estimate": 63,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-ryan-high",
@@ -74,7 +83,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/ryan/high",
       "size_mb_estimate": 118,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-joe-medium",
@@ -89,7 +101,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/joe/medium",
       "size_mb_estimate": 63,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-kusal-medium",
@@ -104,7 +119,10 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/kusal/medium",
       "size_mb_estimate": 63,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
     },
     {
       "id": "en_US-danny-low",
@@ -119,7 +137,27 @@
       "requires_attribution": false,
       "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/danny/low",
       "size_mb_estimate": 20,
-      "checksums": { "onnx": null, "json": null }
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
+    },
+    {
+      "id": "bn_BD-google-medium",
+      "name": "Bengali Multi (Medium)",
+      "type": "voice",
+      "language": "bn-BD",
+      "gender": "male+female (16 speakers)",
+      "style": "multilingual",
+      "version": "main",
+      "license": "MIT; training data CC-BY-SA 4.0 + CMU license",
+      "commercial_use": true,
+      "requires_attribution": true,
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/bn/bn_BD/google/medium",
+      "download_url_onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/bn/bn_BD/google/medium/bn_BD-google-medium.onnx",
+      "download_url_config": "https://huggingface.co/rhasspy/piper-voices/resolve/main/bn/bn_BD/google/medium/bn_BD-google-medium.onnx.json",
+      "size_mb": 74,
+      "sha256": null
     }
   ]
 }

@@ -1,4 +1,4 @@
-"""US-English Piper voice catalog.
+"""Piper voice catalog (US-English + Bengali).
 
 All voices ship from the rhasspy/piper-voices repository (MIT license).
 License facts are taken from the repository itself - never fabricated.
@@ -10,6 +10,9 @@ from tts.base import VoiceInfo
 
 HF_BASE = (
     "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US"
+)
+HF_BASE_MAIN = (
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 )
 
 # voice_id -> (subpath, gender, style, description)
@@ -63,21 +66,46 @@ _CATALOG: dict[str, dict] = {
         "name": "Danny (Low)",
         "size_mb": 20.0,
     },
+    # Multi-speaker Bengali voice (16 speakers, male & female).
+    # Added upstream after the v1.0.0 release, so it is fetched from the
+    # repository's main branch. Speaker names are opaque dataset IDs
+    # (OpenSLR 37 / CMU Indic); audition to find preferred voices.
+    "bn_BD-google-medium": {
+        "subpath": "bn/bn_BD/google/medium",
+        "base": HF_BASE_MAIN,
+        "gender": "male+female",
+        "style": "multilingual",
+        "name": "Bengali Multi (Medium)",
+        "size_mb": 74.0,
+        "accent": "bn-BD",
+        "license": "MIT (rhasspy/piper-voices); training data CC-BY-SA 4.0 "
+                   "+ CMU license - attribution required for redistribution",
+        "speakers": [
+            ("00737", 0), ("01232", 1), ("02194", 2), ("03042", 3),
+            ("00779", 4), ("01701", 5), ("0834", 6), ("1010", 7),
+            ("3108", 8), ("3713", 9), ("3958", 10), ("4046", 11),
+            ("4811", 12), ("5958", 13), ("9169", 14), ("rm", 15),
+        ],
+    },
 }
 
-CATALOG_VOICES: list[dict] = [
-    {
-        "voice_id": vid,
-        "name": meta["name"],
-        "gender": meta["gender"],
-        "accent": "en-US",
-        "style": meta["style"],
-        "license": "MIT (rhasspy/piper-voices)",
+CATALOG_VOICES: list[dict] = []
+for _vid, _meta in _CATALOG.items():
+    _entry = {
+        "voice_id": _vid,
+        "name": _meta["name"],
+        "gender": _meta["gender"],
+        "accent": _meta.get("accent", "en-US"),
+        "language": _meta.get("accent", "en-US"),
+        "style": _meta["style"],
+        "license": _meta.get(
+            "license", "MIT (rhasspy/piper-voices)"),
         "commercial_use": True,
-        "model_size_mb": meta["size_mb"],
+        "model_size_mb": _meta["size_mb"],
     }
-    for vid, meta in _CATALOG.items()
-]
+    if "speakers" in _meta:
+        _entry["speakers"] = tuple(_meta["speakers"])
+    CATALOG_VOICES.append(_entry)
 
 
 def model_urls(voice_id: str) -> tuple[str, str] | None:
@@ -85,8 +113,17 @@ def model_urls(voice_id: str) -> tuple[str, str] | None:
     meta = _CATALOG.get(voice_id)
     if not meta:
         return None
-    base = f"{HF_BASE}/{meta['subpath']}/{voice_id}"
+    base = f"{meta.get('base', HF_BASE)}/{meta['subpath']}/{voice_id}"
     return f"{base}.onnx", f"{base}.onnx.json"
+
+
+def get_speakers(voice_id: str) -> tuple[tuple[str, int], ...] | None:
+    """Speaker list for multi-speaker voices; None otherwise."""
+    meta = _CATALOG.get(voice_id)
+    if not meta:
+        return None
+    speakers = meta.get("speakers")
+    return tuple(speakers) if speakers else None
 
 
 def get_voice(voice_id: str) -> VoiceInfo | None:

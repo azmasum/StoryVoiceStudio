@@ -42,6 +42,7 @@ WPM_DEVIATION_LIMIT = 0.08   # regenerate once beyond 8% drift
 @dataclass
 class GenerationOptions:
     voice_id: str = "en_US-lessac-medium"
+    speaker_id: int | None = None
     engine: str = "piper"
     target_wpm: int = 155
     preset_key: str = "DOCUMENTARY"
@@ -64,6 +65,7 @@ class GenerationOptions:
     def from_settings(cls, settings: GenerationSettings) -> "GenerationOptions":
         return cls(
             voice_id=settings.voice_id,
+            speaker_id=settings.speaker_id,
             engine=settings.tts_engine,
             target_wpm=settings.target_wpm,
             preset_key=settings.preset,
@@ -407,6 +409,7 @@ class GenerationPipeline:
         key = chunk_cache_key(
             chunk.text, self.options.voice_id, self.options.engine,
             length_scale, chunk.wpm_target, chunk.emotion,
+            speaker_id=self.options.speaker_id,
         )
         cached = self.cache.get(key)
         if cached is not None:
@@ -418,7 +421,8 @@ class GenerationPipeline:
         tts_text = clean_for_tts(chunk.text)
         tmp = self.cache.path_for(key).with_suffix(".tmp.wav")
         result = provider.synthesize(tts_text, tmp, self.options.voice_id,
-                                     length_scale=length_scale)
+                                     length_scale=length_scale,
+                                     speaker_id=self.options.speaker_id)
 
         # WPM consistency: correct once when the chunk drifts too much.
         deviation = (
@@ -429,7 +433,8 @@ class GenerationPipeline:
             corrected_scale = round(
                 length_scale * result.actual_wpm / chunk.wpm_target, 5)
             retry = provider.synthesize(tts_text, tmp, self.options.voice_id,
-                                        length_scale=corrected_scale)
+                                        length_scale=corrected_scale,
+                                        speaker_id=self.options.speaker_id)
             if abs(retry.actual_wpm - chunk.wpm_target) < deviation:
                 result = retry
 

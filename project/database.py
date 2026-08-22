@@ -21,6 +21,7 @@ FORMAT_VERSION = 1
 @dataclass
 class GenerationSettings:
     voice_id: str = "en_US-lessac-medium"
+    speaker_id: int | None = None
     tts_engine: str = "piper"
     target_wpm: int = 155
     preset: str = "DOCUMENTARY"
