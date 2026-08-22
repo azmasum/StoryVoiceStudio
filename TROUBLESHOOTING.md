@@ -1,5 +1,10 @@
 # Troubleshooting
 
+## Voice download fails: "The process cannot access the file"
+This is usually antivirus (Windows Defender) briefly locking the freshly
+downloaded model file. The app now retries automatically — if you still see
+it, wait a few seconds and press download again.
+
 ## Voice generation fails: "Voice ... is not downloaded"
 Open **Models → Model Manager** and download the voice (one time, needs
 internet). Everything after that runs offline.

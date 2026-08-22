@@ -10,7 +10,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import time
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -59,16 +62,35 @@ def is_voice_installed(voice_id: str) -> bool:
 ProgressCallback = Callable[[str, int, int], None]  # (stage, done_bytes, total_bytes)
 
 
+def _atomic_replace(tmp: Path, dest: Path) -> None:
+    """Rename *tmp* onto *dest*, riding out transient antivirus locks.
+
+    Windows Defender and other AV products briefly open freshly written
+    files for scanning, which makes an immediate rename fail with
+    WinError 32. A short retry loop resolves this in practice.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(6):
+        try:
+            tmp.replace(dest)
+            return
+        except PermissionError as exc:
+            last_exc = exc
+            time.sleep(0.4 * (attempt + 1))
+    assert last_exc is not None
+    raise last_exc
+
+
 def _download(url: str, dest: Path, progress: ProgressCallback | None,
               stage: str) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers={"User-Agent": "StoryVoiceStudio"})
+    tmp = dest.with_suffix(f".{os.getpid()}-{uuid.uuid4().hex[:8]}.part")
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             total = int(response.headers.get("Content-Length", 0))
             hasher = hashlib.sha256()
             done = 0
-            tmp = dest.with_suffix(dest.suffix + ".part")
             with open(tmp, "wb") as fh:
                 while True:
                     block = response.read(CHUNK_SIZE)
@@ -79,14 +101,16 @@ def _download(url: str, dest: Path, progress: ProgressCallback | None,
                     done += len(block)
                     if progress and total:
                         progress(stage, done, total)
-        tmp.replace(dest)
+        _atomic_replace(tmp, dest)
         _ = hasher.hexdigest()
     except Exception as exc:  # noqa: BLE001
+        tmp.unlink(missing_ok=True)
         raise UserFacingError(
             what=f"Download failed for {dest.name}.",
             why=str(exc),
             actions=[
                 "Check your internet connection and try again.",
+                "If your antivirus is active, wait a few seconds and retry.",
                 "You can also download the file manually from the source URL "
                 "shown in the Model Manager.",
             ],
