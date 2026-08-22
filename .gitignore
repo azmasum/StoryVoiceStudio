@@ -28,3 +28,6 @@ assets/samples/*.wav
 # OS junk
 Thumbs.db
 desktop.ini
+
+# Local Python build environment
+.build/
