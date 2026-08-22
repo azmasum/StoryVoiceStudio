@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an idea for StoryVoice Studio
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What story-production problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: checkboxes
+    id: offline
+    attributes:
+      label: Offline-first check
+      description: Core features must not require internet or accounts.
+      options:
+        - label: This feature can work fully offline (or is explicitly an online/integration feature)
+          required: true

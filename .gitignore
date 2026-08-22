@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# User data / heavy artifacts never belong in git
+logs/
+models/downloaded/
+cache/
+userdata/
+.pylibs/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.storyproj.bak
+assets/samples/*.wav
+
+!assets/samples/.gitkeep
+
+# OS junk
+Thumbs.db
+desktop.ini

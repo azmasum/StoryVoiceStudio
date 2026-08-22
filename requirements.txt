@@ -1,0 +1,7 @@
+# StoryVoice Studio runtime dependencies (Windows / Python 3.10+)
+PySide6>=6.6
+numpy>=1.24
+scipy>=1.10
+soundfile>=0.12
+pyloudnorm>=0.1.1
+piper-tts>=1.2.0

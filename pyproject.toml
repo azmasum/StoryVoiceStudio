@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "storyvoice-studio"
+version = "0.1.0"
+description = "Free, offline-first AI storytelling audio production studio for Windows with local TTS, emotional narration, background music, SFX and professional audio mastering."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "StoryVoice Studio Contributors" }]
+keywords = ["tts", "storytelling", "audio", "narration", "offline"]
+
+[project.scripts]
+storyvoice = "cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "app", "app.config", "app.core", "app.ui", "app.workers", "app.utils",
+    "audio", "audio.dsp", "audio.mixer", "audio.mastering", "audio.waveform", "audio.analysis",
+    "tts", "tts.providers",
+    "emotion",
+    "script",
+    "music",
+    "sfx",
+    "timeline",
+    "models",
+    "project",
+    "export",
+    "cli",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

@@ -1,0 +1,8 @@
+{
+  "_comment": "User-editable pronunciation overrides. Key = written form, value = phonetic respelling for TTS. Longer entries win over shorter ones.",
+  "Worcestershire": "WOOS-ter-sher",
+  "Nguyen": "win",
+  "Seuss": "soos",
+  "Aioli": "ay-OH-lee",
+  "Anemone": "uh-NEM-oh-nee"
+}

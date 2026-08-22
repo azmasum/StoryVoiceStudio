@@ -1,0 +1,45 @@
+name: Bug report
+description: Report something that doesn't work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please redact any personal content from logs
+        before attaching them.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - GUI (PySide6 app)
+        - CLI generation
+        - TTS / voice models
+        - Audio quality / mastering
+        - Music / ducking
+        - Export (WAV/MP3/FLAC)
+        - Projects / autosave / recovery
+        - Model manager / downloads
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: StoryVoice Studio version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Settings → Open Logs Folder
+      render: shell
