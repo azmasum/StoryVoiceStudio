@@ -7,8 +7,8 @@ from PyInstaller.utils.hooks import collect_data_files
 block_cipher = None
 
 datas = [
-    ("assets", "assets"),
-    ("models", "models"),
+    ("..\\assets", "assets"),
+    ("..\\models", "models"),
 ]
 datas += collect_data_files("piper", include_py_files=False)
 
@@ -28,10 +28,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "pytest"],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    excludes=["tkinter", "matplotlib", "pytest", "scipy.stats"],
     noarchive=False,
 )
 
