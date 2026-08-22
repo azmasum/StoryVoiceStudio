@@ -37,6 +37,16 @@ def main() -> int:
     app.setApplicationVersion(VERSION)
     app.setOrganizationName(APP_NAME)
 
+    # Qt swallows exceptions raised inside slots; route them to the log
+    # and stderr so button handlers can never fail silently.
+    def _qt_excepthook(exc_type, exc, tb) -> None:
+        from app.utils.errors import report_exception
+
+        report_exception(exc, context="GUI slot")
+        sys.__excepthook__(exc_type, exc, tb)
+
+    sys.excepthook = _qt_excepthook
+
     from app.utils.hardware import detect_hardware
 
     _ = detect_hardware()  # logs capabilities early; never fatal on failure

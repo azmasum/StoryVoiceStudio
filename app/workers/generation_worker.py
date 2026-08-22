@@ -40,6 +40,10 @@ class GenerationWorker(QThread):
             progress_callback=self._on_progress,
         )
 
+    def _on_progress(self, state) -> None:
+        """Pipeline progress callback - re-emitted as a cross-thread signal."""
+        self.progress_changed.emit(state)
+
     def run(self) -> None:  # executes in worker thread
         try:
             outcome: GenerationOutcome = self.pipeline.run(

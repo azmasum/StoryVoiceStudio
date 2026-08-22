@@ -220,3 +220,10 @@ def test_resume_skips_cached_chunks(tmp_path: Path, monkeypatch):
     # First chunk served from cache; remaining chunks synthesized.
     assert outcome.cache_hits == 0  # resume path counts via status=done
     assert fake.calls == outcome.chunk_count_total - 1
+
+
+def test_generation_worker_has_progress_callback():
+    '''Regression: worker must expose _on_progress or buttons die silently.'''
+    from app.workers.generation_worker import GenerationWorker
+
+    assert callable(getattr(GenerationWorker, "_on_progress", None))
