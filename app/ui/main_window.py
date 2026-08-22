@@ -9,6 +9,8 @@ from PySide6.QtGui import QAction, QDesktopServices, QIcon, QKeySequence
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -16,6 +18,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSlider,
     QSplitter,
     QVBoxLayout,
@@ -158,36 +161,43 @@ class MainWindow(QMainWindow):
         central = QWidget()
         root_layout = QVBoxLayout(central)
 
-        # Dashboard row
-        dashboard = QHBoxLayout()
+        # Dashboard - two-row grid so it adapts to narrow windows
+        # instead of overflowing one long horizontal strip.
+        dashboard = QGridLayout()
+        dashboard.setHorizontalSpacing(8)
         self.name_edit = QLineEdit(self.project.name)
         self.name_edit.setMaximumWidth(260)
         self.stat_words = QLabel("Words: 0")
         self.stat_duration = QLabel("Est. duration: -")
         self.stat_voice = QLabel("Voice: -")
         self.stat_wpm = QLabel("WPM: 155")
-        dashboard.addWidget(QLabel("Project:"))
-        dashboard.addWidget(self.name_edit)
-        dashboard.addWidget(self.stat_words)
-        dashboard.addWidget(self.stat_duration)
-        dashboard.addWidget(self.stat_voice)
-        dashboard.addWidget(self.stat_wpm)
-        dashboard.addStretch(1)
+        for stat in (self.stat_words, self.stat_duration,
+                     self.stat_voice, self.stat_wpm):
+            stat.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.generate_btn = QPushButton("GENERATE AUDIO")
         self.generate_btn.setObjectName("generateBtn")
         self.generate_btn.clicked.connect(self.start_generation)
         self.preview_btn = QPushButton("30s Preview")
         self.preview_btn.clicked.connect(self.start_preview)
-        dashboard.addWidget(self.preview_btn)
-        dashboard.addWidget(self.generate_btn)
+        dashboard.addWidget(QLabel("Project:"), 0, 0)
+        dashboard.addWidget(self.name_edit, 0, 1)
+        dashboard.addWidget(self.preview_btn, 0, 2)
+        dashboard.addWidget(self.generate_btn, 0, 3)
+        dashboard.addWidget(self.stat_words, 1, 0, 1, 2)
+        dashboard.addWidget(self.stat_duration, 1, 1, Qt.AlignRight)
+        dashboard.addWidget(self.stat_voice, 1, 2)
+        dashboard.addWidget(self.stat_wpm, 1, 3, Qt.AlignRight)
+        dashboard.setColumnStretch(1, 1)
         root_layout.addLayout(dashboard)
 
         splitter = QSplitter(Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
 
         # Left: script editor
         editor_container = QWidget()
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_container.setMinimumWidth(300)
         self.editor = ScriptEditor()
         self.stats_row, self.stats_labels = make_stats_row()
         self.editor.text_changed_relaxed.connect(self._on_script_changed)
@@ -200,6 +210,7 @@ class MainWindow(QMainWindow):
         center_container = QWidget()
         center_layout = QVBoxLayout(center_container)
         center_layout.setContentsMargins(0, 0, 0, 0)
+        center_container.setMinimumWidth(260)
         self.waveform = WaveformView()
         center_layout.addWidget(self.waveform)
         transport = QHBoxLayout()
@@ -217,10 +228,20 @@ class MainWindow(QMainWindow):
         center_layout.addLayout(transport)
         splitter.addWidget(center_container)
 
-        # Right: controls
+        # Right: controls, scrollable so short/narrow windows stay usable
         self.controls = ControlsPanel()
         self.controls.settings_changed.connect(self._refresh_dashboard)
-        splitter.addWidget(self.controls)
+        controls_scroll = QScrollArea()
+        controls_scroll.setWidget(self.controls)
+        controls_scroll.setWidgetResizable(True)
+        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        controls_scroll.setMinimumWidth(320)
+        controls_scroll.setFrameShape(QFrame.NoFrame)
+        splitter.addWidget(controls_scroll)
+
+        splitter.setStretchFactor(0, 3)   # editor grows the most
+        splitter.setStretchFactor(1, 2)   # waveform
+        splitter.setStretchFactor(2, 2)   # controls
         splitter.setSizes([520, 420, 360])
         root_layout.addWidget(splitter, 1)
 
@@ -233,6 +254,9 @@ class MainWindow(QMainWindow):
         self.player.errorOccurred.connect(self._on_player_error)
 
         self.setCentralWidget(central)
+        # Responsive floor: below this size panels would cramp.
+        self.setMinimumSize(1000, 620)
+        self.resize(1280, 760)
 
     def _build_statusbar(self) -> None:
         status_widget = QWidget()
@@ -273,8 +297,13 @@ class MainWindow(QMainWindow):
                 save_settings(self.settings)
             else:
                 self.settings.first_run_done = True
-        demo_path = Path(__file__).resolve().parents[3] / "assets" / "samples" / "the_last_train_home.txt"
-        if demo_path.exists() and not self.editor.toPlainText():
+        demo_path = None
+        for ancestor in Path(__file__).resolve().parents[1:5]:
+            candidate = ancestor / "assets" / "samples" / "the_last_train_home.txt"
+            if candidate.exists():
+                demo_path = candidate
+                break
+        if demo_path and not self.editor.toPlainText():
             try:
                 text = demo_path.read_text(encoding="utf-8")
                 if QMessageBox.question(

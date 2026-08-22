@@ -38,6 +38,7 @@ class ControlsPanel(QWidget):
         voice_form = QFormLayout(voice_box)
         self.voice_combo = QComboBox()
         self.voice_label = QLabel()
+        self.voice_label.setWordWrap(True)
         self._reload_voices()
         self._update_voice_info()
         self.voice_combo.currentIndexChanged.connect(self._on_voice_changed)
