@@ -21,6 +21,7 @@ a = Analysis(
         "piper",
         "soundfile",
         "pyloudnorm",
+        "appdirs",
         "scipy.signal",
         "scipy.io.wavfile",
         "PySide6.QtMultimedia",
@@ -28,7 +29,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "pytest", "scipy.stats"],
+    excludes=["tkinter", "matplotlib", "pytest", "scipy.stats",
+              "setuptools", "pkg_resources"],
     noarchive=False,
 )
 

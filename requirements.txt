@@ -5,3 +5,4 @@ scipy>=1.10
 soundfile>=0.12
 pyloudnorm>=0.1.1
 piper-tts>=1.2.0
+appdirs>=1.4.4
