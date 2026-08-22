@@ -230,6 +230,7 @@ class MainWindow(QMainWindow):
         self.player.positionChanged.connect(self._on_player_position)
         self.player.durationChanged.connect(self._on_player_duration)
         self.player.playbackStateChanged.connect(self._on_play_state)
+        self.player.errorOccurred.connect(self._on_player_error)
 
         self.setCentralWidget(central)
 
@@ -592,7 +593,8 @@ class MainWindow(QMainWindow):
     # -- playback -------------------------------------------------------------------
 
     def _toggle_playback(self) -> None:
-        if self.player.playbackState() == self.player.PlaybackState.Playing:
+        playing = QMediaPlayer.PlaybackState.PlayingState
+        if self.player.playbackState() == playing:
             self.player.pause()
         elif self.player.source().isEmpty():
             QMessageBox.information(
@@ -605,8 +607,13 @@ class MainWindow(QMainWindow):
         self.position_slider.setValue(0)
 
     def _on_play_state(self, state) -> None:
+        playing = QMediaPlayer.PlaybackState.PlayingState
         self.play_btn.setText(
-            "Pause" if state == self.player.PlaybackState.Playing else "Play")
+            "Pause" if state == playing else "Play")
+
+    def _on_player_error(self, error, error_string: str) -> None:
+        log.error("Playback error %s: %s", error, error_string)
+        self.status_label.setText(f"Playback error: {error_string}")
 
     def _on_player_position(self, position_ms: int) -> None:
         duration = max(1, self.player.duration())
