@@ -45,6 +45,9 @@ class GenerationSettings:
     export_format: str = "wav"
     export_stems: bool = False
 
+    # Voice character presets
+    meditation_preset: bool = False
+
 
 @dataclass
 class StoryProject:

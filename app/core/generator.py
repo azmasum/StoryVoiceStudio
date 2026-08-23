@@ -22,6 +22,7 @@ import numpy as np
 from app.config.paths import exports_dir
 from app.utils.errors import UserFacingError
 from audio.analysis.quality import check_audio
+from audio.dsp import meditation as meditation_mod
 from audio.mastering.chain import MasteringSettings, master_mix, master_voice
 from audio.mixer.mixdown import TrackEvent, mixdown
 from emotion.presets import StoryPreset, get_preset
@@ -59,6 +60,7 @@ class GenerationOptions:
     sample_rate: int = 44100
     export_format: str = "wav"
     export_stems: bool = False
+    meditation_preset: bool = False
     preview_seconds: float = 0.0   # >0 builds a short preview render only
 
     @classmethod
@@ -81,6 +83,7 @@ class GenerationOptions:
             custom_lufs=settings.custom_lufs,
             export_format=settings.export_format,
             export_stems=settings.export_stems,
+            meditation_preset=getattr(settings, "meditation_preset", False),
         )
 
 
@@ -209,9 +212,13 @@ class GenerationPipeline:
         cursor = 0.0
         speech_words = 0
         speech_seconds = 0.0
+        meditation = self.options.meditation_preset
+        prev_text = ""
 
         for chunk in chunks:
             self._check_control()
+            if meditation and prev_text and _ends_sentence(prev_text):
+                cursor += MEDITATION_BREATH_SECONDS
             if chunk.status == "done" and chunk.audio_path:
                 # Resumed chunk: trust its recorded timing.
                 import soundfile as sf
@@ -227,6 +234,7 @@ class GenerationPipeline:
                 speech_words += len(chunk.text.split())
                 speech_seconds += duration
                 done += 1
+                prev_text = chunk.text
                 continue
 
             self._report(
@@ -249,6 +257,7 @@ class GenerationPipeline:
             speech_words += len(chunk.text.split())
             speech_seconds += duration
             done += 1
+            prev_text = chunk.text
             elapsed = time.time() - started
             per_chunk = elapsed / max(done, 1)
             remaining = (len(chunks) - done) * per_chunk
@@ -293,9 +302,12 @@ class GenerationPipeline:
         # Mastering bus
         self._report(phase="master", overall_percent=95.0,
                      message="Mastering...")
+        lufs_target = self.options.custom_lufs
+        if self.options.meditation_preset and lufs_target is None:
+            lufs_target = -21.0  # quieter master suits calm listening
         mastering = MasteringSettings(
             preset=self.options.loudness_preset,
-            custom_lufs=self.options.custom_lufs,
+            custom_lufs=lufs_target,
         )
         final_audio, loud_stats = master_mix(mixed.final, self.options.sample_rate,
                                              mastering)
@@ -406,10 +418,16 @@ class GenerationPipeline:
         )
         length_scale = round(base_scale * plan.length_scale, 5)
 
+        meditation = self.options.meditation_preset
+        if meditation:
+            length_scale = round(
+                length_scale * meditation_mod.LENGTH_SCALE_MULTIPLIER, 5)
+
         key = chunk_cache_key(
             chunk.text, self.options.voice_id, self.options.engine,
             length_scale, chunk.wpm_target, chunk.emotion,
             speaker_id=self.options.speaker_id,
+            meditation=meditation,
         )
         cached = self.cache.get(key)
         if cached is not None:
@@ -425,11 +443,13 @@ class GenerationPipeline:
                                      speaker_id=self.options.speaker_id)
 
         # WPM consistency: correct once when the chunk drifts too much.
+        # Skipped for the meditation preset: its slow pace is intentional.
         deviation = (
             abs(result.actual_wpm - chunk.wpm_target) / chunk.wpm_target
             if result.actual_wpm > 0 else 0.0
         )
-        if deviation > WPM_DEVIATION_LIMIT and result.actual_wpm > 0:
+        if (not meditation and deviation > WPM_DEVIATION_LIMIT
+                and result.actual_wpm > 0):
             corrected_scale = round(
                 length_scale * result.actual_wpm / chunk.wpm_target, 5)
             retry = provider.synthesize(tts_text, tmp, self.options.voice_id,
@@ -439,6 +459,8 @@ class GenerationPipeline:
                 result = retry
 
         _trim_chunk_tail(tmp)
+        if meditation:
+            _apply_meditation_dsp(tmp)
         final_path = self.cache.put(key, tmp)
         return final_path
 
@@ -511,6 +533,30 @@ def _trim_chunk_tail(path: Path, tail_keep_seconds: float = 0.6) -> None:
     if keep < len(data) - rate * 0.05:  # only rewrite when it matters
         sf.write(str(path), data[:keep].astype(np.float32), rate,
                  subtype="PCM_16")
+
+
+MEDITATION_BREATH_SECONDS = 1.5
+_SENTENCE_ENDINGS = tuple("।!?.；")
+
+
+def _ends_sentence(text: str) -> bool:
+    return text.rstrip().endswith(_SENTENCE_ENDINGS)
+
+
+def _apply_meditation_dsp(path: Path) -> None:
+    """Pitch-shift + v10 profile chain, in place on a cached chunk wav."""
+    import soundfile as sf
+
+    try:
+        data, rate = sf.read(str(path), dtype="float32")
+    except Exception:  # noqa: BLE001
+        return
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    shifted = meditation_mod.pitch_shift_slow(data.astype(np.float64))
+    processed = meditation_mod.apply_meditation_profile(shifted, rate)
+    sf.write(str(path), processed.astype(np.float32), rate,
+             subtype="PCM_16")
 
 
 def _safe_name(name: str) -> str:

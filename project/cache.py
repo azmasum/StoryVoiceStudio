@@ -21,6 +21,7 @@ def chunk_cache_key(
     wpm_target: int,
     emotion: str,
     speaker_id: int | None = None,
+    meditation: bool = False,
 ) -> str:
     payload = json.dumps(
         {
@@ -31,6 +32,7 @@ def chunk_cache_key(
             "wpm": wpm_target,
             "emotion": emotion,
             "speaker": speaker_id,
+            "meditation": meditation,
         },
         sort_keys=True,
     )

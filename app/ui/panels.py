@@ -135,9 +135,16 @@ class ControlsPanel(QWidget):
         self.format_combo = QComboBox()
         self.format_combo.addItems(["wav", "mp3", "flac"])
         self.export_stems = QCheckBox("Export stems (Voice/Music/SFX/Ambience)")
+        self.meditation_preset = QCheckBox(
+            "Meditation voice preset (slow 0.85x, soft pitch, long pauses)")
+        self.meditation_preset.setToolTip(
+            "Warm intimate delivery for meditation/sleep content: pitch -1.3 "
+            "semitones, gentle EQ + compression, breathing pauses between "
+            "sentences and a quiet -21 LUFS master.")
         self.loudness_combo.currentIndexChanged.connect(self.settings_changed)
         self.format_combo.currentIndexChanged.connect(self.settings_changed)
         self.export_stems.stateChanged.connect(self.settings_changed)
+        self.meditation_preset.stateChanged.connect(self.settings_changed)
         master_form.addRow("Loudness target:", self.loudness_combo)
         master_form.addRow("Format:", self.format_combo)
         master_form.addRow(self.export_stems)
@@ -257,6 +264,8 @@ class ControlsPanel(QWidget):
         self.loudness_combo.setCurrentText(settings.loudness_preset)
         self.format_combo.setCurrentText(settings.export_format)
         self.export_stems.setChecked(settings.export_stems)
+        self.meditation_preset.setChecked(
+            getattr(settings, "meditation_preset", False))
 
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
         return GenerationSettings(
@@ -277,4 +286,5 @@ class ControlsPanel(QWidget):
             loudness_preset=self.loudness_combo.currentText(),
             export_format=self.format_combo.currentText(),
             export_stems=self.export_stems.isChecked(),
+            meditation_preset=self.meditation_preset.isChecked(),
         )
