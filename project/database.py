@@ -46,7 +46,8 @@ class GenerationSettings:
     export_stems: bool = False
 
     # Voice character presets
-    meditation_preset: bool = False
+    meditation_preset: bool = False            # legacy (pre-0.2 projects)
+    voice_character: str = "standard"          # standard|meditation|psychology
 
 
 @dataclass
