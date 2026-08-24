@@ -1,4 +1,4 @@
-"""Right-hand control panel: voice, pacing, emotion, music, mastering."""
+﻿"""Right-hand control panel: voice, pacing, emotion, music, mastering."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -31,7 +31,7 @@ class ControlsPanel(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(2, 4, 2, 4)
 
         # -- Voice ----------------------------------------------------------
         voice_box = QGroupBox("Voice")
@@ -52,7 +52,9 @@ class ControlsPanel(QWidget):
         voice_form.addRow("Speaker:", self.speaker_combo)
         voice_form.addRow(self.voice_label)
         voice_form.addRow(refresh_btn)
-        self.voice_lock = QCheckBox("VOICE LOCK (consistent voice across chunks)")
+        self.voice_lock = QCheckBox("Voice lock")
+        self.voice_lock.setToolTip(
+            "Keep the same voice consistently across all chunks.")
         self.voice_lock.setChecked(True)
         voice_form.addRow(self.voice_lock)
         layout.addWidget(voice_box)
@@ -83,20 +85,20 @@ class ControlsPanel(QWidget):
         self.emotion_intensity = QSlider(Qt.Horizontal)
         self.emotion_intensity.setRange(0, 100)
         self.emotion_intensity.setValue(70)
-        self.auto_emotion = QCheckBox("Automatic emotion detection")
+        self.auto_emotion = QCheckBox("Auto emotion")
         self.auto_emotion.setChecked(True)
         self.emotion_intensity.valueChanged.connect(self.settings_changed)
         self.wpm_spin.valueChanged.connect(self.settings_changed)
         self.auto_emotion.stateChanged.connect(self.settings_changed)
-        pace_form.addRow("Target speed:", self.wpm_spin)
-        pace_form.addRow("Emotion intensity:", self.emotion_intensity)
+        pace_form.addRow("Speed:", self.wpm_spin)
+        pace_form.addRow("Emotion:", self.emotion_intensity)
         pace_form.addRow(self.auto_emotion)
         layout.addWidget(pace_box)
 
         # -- Music ------------------------------------------------------------
         music_box = QGroupBox("Background Music")
         music_form = QFormLayout(music_box)
-        self.music_enabled = QCheckBox("Enable background music (auto-ducked)")
+        self.music_enabled = QCheckBox("Background music")
         self.music_path = QLineEdit()
         browse = QPushButton("Browse...")
         browse.clicked.connect(self._browse_music)
@@ -121,9 +123,9 @@ class ControlsPanel(QWidget):
         music_form.addRow("Music file:", self.music_path)
         music_form.addRow(browse)
         music_form.addRow("Music level:", self.music_gain)
-        music_form.addRow("Ducking depth:", self.ducking_db)
-        music_form.addRow("Attack (ms):", self.ducking_attack)
-        music_form.addRow("Release (ms):", self.ducking_release)
+        music_form.addRow("Duck depth:", self.ducking_db)
+        music_form.addRow("Duck attack:", self.ducking_attack)
+        music_form.addRow("Duck release:", self.ducking_release)
         layout.addWidget(music_box)
 
         # -- Mastering / export ----------------------------------------------
@@ -135,25 +137,33 @@ class ControlsPanel(QWidget):
         self.format_combo = QComboBox()
         self.format_combo.addItems(["wav", "mp3", "flac"])
         self.character_combo = QComboBox()
+        self.character_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.character_combo.setMinimumContentsLength(16)
         self.character_combo.addItem("Standard narration", "standard")
-        self.character_combo.addItem(
-            "Meditation (slow, soft pitch, long pauses)", "meditation")
-        self.character_combo.addItem(
-            "Psychology explainer (deep, clear, strategic pauses)",
-            "psychology")
-        self.export_stems = QCheckBox("Export stems (Voice/Music/SFX/Ambience)")
+        self.character_combo.addItem("Meditation preset", "meditation")
+        self.character_combo.addItem("Psychology explainer", "psychology")
+        self.export_stems = QCheckBox("Export stems")
         self.loudness_combo.currentIndexChanged.connect(self.settings_changed)
         self.format_combo.currentIndexChanged.connect(self.settings_changed)
         self.export_stems.stateChanged.connect(self.settings_changed)
         self.character_combo.currentIndexChanged.connect(self.settings_changed)
-        master_form.addRow("Voice character:", self.character_combo)
-        master_form.addRow("Loudness target:", self.loudness_combo)
+        master_form.addRow("Character:", self.character_combo)
+        master_form.addRow("Loudness:", self.loudness_combo)
         master_form.addRow("Format:", self.format_combo)
         master_form.addRow(self.export_stems)
         layout.addWidget(master_box)
 
+        # Keep the panel narrow enough for a side column: combos must not
+        # expand to their longest item's width.
+        from PySide6.QtWidgets import QComboBox as _QCB
+        for combo in self.findChildren(_QCB):
+            combo.setSizeAdjustPolicy(
+                _QCB.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            combo.setMinimumContentsLength(10)
+
         warning = QLabel(
-            "⚠ Before publishing monetized content, verify that your "
+            "âš  Before publishing monetized content, verify that your "
             "selected AI model, voice, music and SFX licenses permit "
             "commercial use."
         )
@@ -180,9 +190,9 @@ class ControlsPanel(QWidget):
             if entry["voice_id"] == voice_id:
                 commercial = "YES" if entry["commercial_use"] else "NO"
                 self.voice_label.setText(
-                    f"{entry['gender'].capitalize()} · {entry['accent']} · "
-                    f"style: {entry['style']} · license: {entry['license']} · "
-                    f"commercial use: {commercial} · ~{entry['model_size_mb']:.0f} MB"
+                    f"{entry['gender'].capitalize()} Â· {entry['accent']} Â· "
+                    f"style: {entry['style']} Â· license: {entry['license']} Â· "
+                    f"commercial use: {commercial} Â· ~{entry['model_size_mb']:.0f} MB"
                 )
                 return
         self.voice_label.setText("")
@@ -191,8 +201,8 @@ class ControlsPanel(QWidget):
         key = self.preset_combo.currentData() or DEFAULT_PRESET
         preset = get_preset(key)
         self.preset_description.setText(
-            f"{preset.description}\nWPM {preset.wpm} · pauses x"
-            f"{preset.pause_scale:.2f} · music: {preset.music_mood}"
+            f"{preset.description}\nWPM {preset.wpm} Â· pauses x"
+            f"{preset.pause_scale:.2f} Â· music: {preset.music_mood}"
         )
 
     def _apply_preset(self) -> None:

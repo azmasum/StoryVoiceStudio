@@ -77,7 +77,8 @@ def logs_dir() -> Path:
 
 
 def exports_dir() -> Path:
-    path = data_dir() / "Exports"
+    """User-facing output folder: Downloads\\StoryVoiceStudio."""
+    path = Path.home() / "Downloads" / "StoryVoiceStudio"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

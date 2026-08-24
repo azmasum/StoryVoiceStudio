@@ -1,4 +1,4 @@
-"""StoryVoice Studio main window (PySide6, dark professional UI)."""
+﻿"""StoryVoice Studio main window (PySide6, dark professional UI)."""
 from __future__ import annotations
 
 import time
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
         editor_container = QWidget()
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
-        editor_container.setMinimumWidth(300)
+        editor_container.setMinimumWidth(280)
         self.editor = ScriptEditor()
         self.stats_row, self.stats_labels = make_stats_row()
         self.editor.text_changed_relaxed.connect(self._on_script_changed)
@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
         center_container = QWidget()
         center_layout = QVBoxLayout(center_container)
         center_layout.setContentsMargins(0, 0, 0, 0)
-        center_container.setMinimumWidth(260)
+        center_container.setMinimumWidth(240)
         self.waveform = WaveformView()
         center_layout.addWidget(self.waveform)
         transport = QHBoxLayout()
@@ -234,15 +234,15 @@ class MainWindow(QMainWindow):
         controls_scroll = QScrollArea()
         controls_scroll.setWidget(self.controls)
         controls_scroll.setWidgetResizable(True)
-        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        controls_scroll.setMinimumWidth(320)
+        controls_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        controls_scroll.setMinimumWidth(350)
         controls_scroll.setFrameShape(QFrame.NoFrame)
         splitter.addWidget(controls_scroll)
 
         splitter.setStretchFactor(0, 3)   # editor grows the most
         splitter.setStretchFactor(1, 2)   # waveform
-        splitter.setStretchFactor(2, 2)   # controls
-        splitter.setSizes([520, 420, 360])
+        splitter.setStretchFactor(2, 3)   # controls
+        splitter.setSizes([480, 360, 400])
         root_layout.addWidget(splitter, 1)
 
         self.audio_output = QAudioOutput()
@@ -523,7 +523,7 @@ class MainWindow(QMainWindow):
     def _on_progress(self, state) -> None:
         self.progress_bar.setValue(int(state.overall_percent))
         eta = int(state.eta_seconds)
-        eta_text = f" · ETA {eta}s" if state.phase == "voice" and eta else ""
+        eta_text = f" Â· ETA {eta}s" if state.phase == "voice" and eta else ""
         self.status_label.setText(
             f"[{state.phase}] {state.message}{eta_text}")
 
@@ -541,8 +541,8 @@ class MainWindow(QMainWindow):
             f"Actual WPM: {outcome.actual_wpm or '-'}")
         summary = (
             f"Done: {outcome.chunk_count_done}/{outcome.chunk_count_total} "
-            f"chunks · {outcome.duration_seconds:.1f}s · "
-            f"{outcome.lufs} LUFS · TP {outcome.true_peak} dBTP"
+            f"chunks Â· {outcome.duration_seconds:.1f}s Â· "
+            f"{outcome.lufs} LUFS Â· TP {outcome.true_peak} dBTP"
         )
         if preview_only:
             summary = "PREVIEW ready - full render not performed."
