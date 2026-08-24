@@ -38,11 +38,17 @@ def _peaking(y: np.ndarray, sr: int) -> np.ndarray:
     return sosfilt(tf2sos(b, a), y)
 
 
+def _safe_lp(y: np.ndarray, sr: int, hz: float) -> np.ndarray:
+    """Lowpass with Wn clamped under Nyquist (16 kHz voice models exist)."""
+    return sosfilt(butter(2, min(hz, sr * 0.45), "low", fs=sr,
+                          output="sos"), y)
+
+
 def apply_psych_profile(y: np.ndarray, sr: int,
                         final_line: bool = False) -> np.ndarray:
     y = sosfilt(butter(2, 70, "high", fs=sr, output="sos"), y)
     y = _peaking(y, sr)
-    y = sosfilt(butter(2, LOWPASS_HZ, "low", fs=sr, output="sos"), y)
+    y = _safe_lp(y, sr, LOWPASS_HZ)
 
     n = max(int(sr * REVERB_TAIL), 8)
     t = np.linspace(0, REVERB_TAIL, n)

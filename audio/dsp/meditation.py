@@ -36,11 +36,17 @@ def pitch_shift_slow(y: np.ndarray) -> np.ndarray:
     return resample_poly(y, RESAMPLE_UP, RESAMPLE_DOWN)
 
 
+def _safe_lp(y: np.ndarray, sr: int, hz: float) -> np.ndarray:
+    """Lowpass with Wn clamped under Nyquist (16 kHz voice models exist)."""
+    return sosfilt(butter(2, min(hz, sr * 0.45), "low", fs=sr,
+                          output="sos"), y)
+
+
 def apply_meditation_profile(y: np.ndarray, sr: int) -> np.ndarray:
     """Post chain from the approved audition sample (v10)."""
     y = sosfilt(butter(2, 60, "high", fs=sr, output="sos"), y)
     y = _peaking(y, sr)
-    y = sosfilt(butter(2, _LOWPASS_HZ, "low", fs=sr, output="sos"), y)
+    y = _safe_lp(y, sr, _LOWPASS_HZ)
 
     n = max(int(sr * _REVERB_TAIL), 8)
     t = np.linspace(0, _REVERB_TAIL, n)

@@ -42,13 +42,17 @@ def limiter(samples: np.ndarray, sample_rate: int,
         return samples.astype(np.float32)
     ceiling = _db_to_linear(ceiling_db)
     look = max(1, int(sample_rate * lookahead_ms / 1000.0))
-    padded = np.pad(samples, (look, 0), mode="edge")
-    future_peak = np.maximum.reduce([
-        padded[i:len(padded) - look + i] if i > 0 else padded[:len(samples)]
-        for i in range(look)
-    ]) if look > 1 else samples
+    padded = np.abs(np.pad(samples.astype(np.float64), (look, 0),
+                           mode="edge"))
+    # Sliding max over the lookahead window without materialising one
+    # full-length copy per lookahead sample (O(N) time and memory).
+    from scipy.ndimage import maximum_filter1d
+
+    future_peak = maximum_filter1d(
+        padded, size=look, origin=-(look // 2), mode="nearest"
+    )[: len(samples)]
     needed_gain = np.minimum(
-        ceiling / np.maximum(np.abs(future_peak), 1e-9), 1.0
+        ceiling / np.maximum(future_peak, 1e-9), 1.0
     ).astype(np.float64)
 
     # Smooth gain trajectory so limiting stays transparent.
