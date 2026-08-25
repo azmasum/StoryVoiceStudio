@@ -1,9 +1,38 @@
-"""Create the portable ZIP from the PyInstaller output folder."""
-import shutil
+"""Build the portable ZIP and the one-click Setup.exe (7z SFX).
+
+Outputs into dist/:
+  - StoryVoiceStudio-Portable.zip   (unzip anywhere, run Install.bat)
+  - StoryVoiceStudio-Setup.exe      (double-click -> installs)
+
+Both contain the app plus the installer scripts; the optional
+voice-clone pack is excluded from the payload (the installer can
+fetch it on demand).
+"""
 import pathlib
+import shutil
+import subprocess
+
+DIST = pathlib.Path("dist")
+SRC = DIST / "StoryVoiceStudio"
+STAGE_ROOT = DIST / "_zip_staging"
+STAGE = STAGE_ROOT / "StoryVoiceStudio"
+ZIP_PATH = DIST / "StoryVoiceStudio-Portable.zip"
+SETUP_PATH = DIST / "StoryVoiceStudio-Setup.exe"
+
+EXCLUDE_DIRS = {"clone_libs", "_runtime"}
+INSTALLER_FILES = ("Install.bat", "install.ps1", "Uninstall.bat")
+SEVENZIP_CANDIDATES = (
+    r"C:\Program Files\7-Zip\7z.exe",
+    r"C:\Program Files (x86)\7-Zip\7z.exe",
+)
+SFX_MODULE = pathlib.Path(__file__).parent / "tools" / "7zSD.sfx"
 
 
-EXCLUDE_DIRS = {"clone_libs"}  # optional voice-clone pack (large)
+def find_7z() -> str | None:
+    for cand in SEVENZIP_CANDIDATES:
+        if pathlib.Path(cand).exists():
+            return cand
+    return None
 
 
 def copy_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
@@ -20,26 +49,60 @@ def copy_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
 
 
 def main() -> None:
-    dist = pathlib.Path("dist")
-    src = dist / "StoryVoiceStudio"
-    if not src.exists():
+    if not SRC.exists():
         raise SystemExit("dist/StoryVoiceStudio not found - run PyInstaller first")
-    staging = dist / "_zip_staging" / "StoryVoiceStudio"
-    if staging.exists():
-        shutil.rmtree(staging.parent)
-    staging.mkdir(parents=True)
-    copy_tree(src, staging)
-    zip_path = dist / "StoryVoiceStudio-Portable.zip"
-    if zip_path.exists():
-        zip_path.unlink()
-    shutil.make_archive(str(zip_path.with_suffix("")), "zip",
-                        root_dir=staging.parent, base_dir="StoryVoiceStudio")
-    shutil.rmtree(staging.parent)
-    print(f"Created {zip_path} (voice-clone pack excluded)")
 
+    # --- stage payload -----------------------------------------------------
+    if STAGE_ROOT.exists():
+        shutil.rmtree(STAGE_ROOT)
+    STAGE.mkdir(parents=True)
+    copy_tree(SRC, STAGE)
+    inst_src = pathlib.Path(__file__).parent / "portable_installer"
+    for name in INSTALLER_FILES:
+        shutil.copy2(inst_src / name, STAGE / name)
 
-if __name__ == "__main__":
-    main()
+    # --- portable zip -------------------------------------------------------
+    if ZIP_PATH.exists():
+        ZIP_PATH.unlink()
+    shutil.make_archive(str(ZIP_PATH.with_suffix("")), "zip",
+                        root_dir=STAGE_ROOT, base_dir="StoryVoiceStudio")
+    print(f"Created {ZIP_PATH}")
+
+    # --- one-click setup.exe -------------------------------------------------
+    sevenzip = find_7z()
+    sfx_config = STAGE_ROOT / "sfx_config.txt"
+    sfx_config.write_text(
+        ';!@Install@!UTF-8!\r\n'
+        'Title="StoryVoice Studio"\r\n'
+        'BeginPrompt="Install StoryVoice Studio on this PC?"\r\n'
+        'RunProgram="StoryVoiceStudio\\\\Install.bat"\r\n'
+        'ExtractTitle="StoryVoice Studio"\r\n'
+        'ExtractDialogText="Preparing installation files..."\r\n'
+        ';!@InstallEnd@!\r\n',
+        encoding="utf-8-sig",
+    )
+    archive = STAGE_ROOT / "payload.7z"
+    if SETUP_PATH.exists():
+        SETUP_PATH.unlink()
+
+    if not sevenzip:
+        print("7-Zip not found - skipped Setup.exe (zip only).")
+        shutil.rmtree(STAGE_ROOT)
+        return
+
+    subprocess.check_call([sevenzip, "a", str(archive), str(STAGE),
+                           "-mx=9", "-bso0", "-bsp0"])
+    if SFX_MODULE.exists():
+        with open(SETUP_PATH, "wb") as out:
+            out.write(SFX_MODULE.read_bytes())
+            out.write(sfx_config.read_bytes())
+            with open(archive, "rb") as arc:
+                shutil.copyfileobj(arc, out)
+        size_mb = SETUP_PATH.stat().st_size // (1024 * 1024)
+        print(f"Created {SETUP_PATH} ({size_mb} MB)")
+    else:
+        print("7zSD.sfx module missing - skipped Setup.exe.")
+    shutil.rmtree(STAGE_ROOT)
 
 
 if __name__ == "__main__":
