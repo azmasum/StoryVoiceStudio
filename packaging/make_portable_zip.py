@@ -75,7 +75,8 @@ def main() -> None:
         ';!@Install@!UTF-8!\r\n'
         'Title="StoryVoice Studio"\r\n'
         'BeginPrompt="Install StoryVoice Studio on this PC?"\r\n'
-        'RunProgram="StoryVoiceStudio\\\\Install.bat"\r\n'
+        'Directory="StoryVoiceStudio"\r\n'
+        'RunProgram="Install.bat"\r\n'
         'ExtractTitle="StoryVoice Studio"\r\n'
         'ExtractDialogText="Preparing installation files..."\r\n'
         ';!@InstallEnd@!\r\n',
@@ -90,8 +91,9 @@ def main() -> None:
         shutil.rmtree(STAGE_ROOT)
         return
 
-    subprocess.check_call([sevenzip, "a", str(archive), str(STAGE),
-                           "-mx=9", "-bso0", "-bsp0"])
+    subprocess.check_call([sevenzip, "a", str(archive.resolve()),
+                           "StoryVoiceStudio", "-mx=9", "-bso0", "-bsp0"],
+                          cwd=str(STAGE_ROOT))
     if SFX_MODULE.exists():
         with open(SETUP_PATH, "wb") as out:
             out.write(SFX_MODULE.read_bytes())
