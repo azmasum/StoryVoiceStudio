@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -154,6 +155,70 @@ class ControlsPanel(QWidget):
         master_form.addRow(self.export_stems)
         layout.addWidget(master_box)
 
+        # -- Voice clone (optional OpenVoice tone transfer) ------------------
+        from audio.clone import engine as clone_engine
+
+        clone_box = QGroupBox("Voice Clone (Beta)")
+        clone_form = QFormLayout(clone_box)
+        self.clone_enabled = QCheckBox("Clone reference voice")
+        self.clone_enabled.stateChanged.connect(self.settings_changed)
+        clone_form.addRow(self.clone_enabled)
+
+        ref_row = QHBoxLayout()
+        self.clone_ref_edit = QLineEdit()
+        self.clone_ref_edit.setPlaceholderText("Reference .wav / .mp3")
+        ref_browse = QPushButton("...")
+        ref_browse.setFixedWidth(28)
+        ref_browse.setToolTip("Browse for a reference voice clip")
+        ref_row.addWidget(self.clone_ref_edit, 1)
+        ref_row.addWidget(ref_browse)
+        ref_holder = QWidget()
+        ref_holder.setLayout(ref_row)
+        clone_form.addRow("Voice file:", ref_holder)
+
+        url_row = QHBoxLayout()
+        self.clone_url_edit = QLineEdit()
+        self.clone_url_edit.setPlaceholderText("https://... voice link")
+        url_fetch = QPushButton("Get")
+        url_fetch.setFixedWidth(34)
+        url_fetch.setToolTip("Download the linked clip as reference")
+        url_row.addWidget(self.clone_url_edit, 1)
+        url_row.addWidget(url_fetch)
+        url_holder = QWidget()
+        url_holder.setLayout(url_row)
+        clone_form.addRow("Voice link:", url_holder)
+
+        self.clone_status = QLabel(clone_engine.status_text())
+        self.clone_status.setWordWrap(True)
+        self.clone_status.setStyleSheet("color: #8a93a6;")
+        clone_form.addRow(self.clone_status)
+
+        def _browse_ref() -> None:
+            path, _ = QFileDialog.getOpenFileName(
+                self, "Select reference voice",
+                "", "Audio (*.wav *.mp3 *.flac *.ogg)")
+            if path:
+                self.clone_ref_edit.setText(path)
+                self._refresh_clone_status()
+
+        def _fetch_url() -> None:
+            url = self.clone_url_edit.text().strip()
+            if not url:
+                return
+            try:
+                from app.config.paths import references_dir
+                local = clone_engine.load_reference(url, references_dir())
+                self.clone_ref_edit.setText(str(local))
+                self._refresh_clone_status()
+            except Exception as exc:  # noqa: BLE001
+                self.clone_status.setText(f"Download failed: {exc}")
+                self.clone_status.setStyleSheet("color: #d9776b;")
+
+        ref_browse.clicked.connect(_browse_ref)
+        url_fetch.clicked.connect(_fetch_url)
+        self.clone_ref_edit.editingFinished.connect(self._refresh_clone_status)
+        layout.addWidget(clone_box)
+
         # Keep the panel narrow enough for a side column: combos must not
         # expand to their longest item's width.
         from PySide6.QtWidgets import QComboBox as _QCB
@@ -281,6 +346,27 @@ class ControlsPanel(QWidget):
             else "standard")
         index = self.character_combo.findData(character)
         self.character_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.clone_enabled.setChecked(
+            bool(getattr(settings, "clone_enabled", False)))
+        self.clone_ref_edit.setText(
+            str(getattr(settings, "clone_ref_path", "") or ""))
+        self._refresh_clone_status()
+
+    def _refresh_clone_status(self) -> None:
+        from audio.clone import engine as clone_engine
+        text = clone_engine.status_text()
+        ref = self.clone_ref_edit.text().strip()
+        if ref:
+            try:
+                local = clone_engine.load_reference(ref)
+                text = f"Reference OK: {local.name}"
+            except Exception as exc:  # noqa: BLE001
+                text = f"Reference problem: {exc}"
+        self.clone_status.setText(text)
+        self.clone_status.setStyleSheet(
+            "color: #7fbf7f;" if text.startswith(("Voice clone ready",
+                                                  "Reference OK"))
+            else "color: #8a93a6;")
 
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
         return GenerationSettings(
@@ -302,4 +388,6 @@ class ControlsPanel(QWidget):
             export_format=self.format_combo.currentText(),
             export_stems=self.export_stems.isChecked(),
             voice_character=self.character_combo.currentData() or "standard",
+            clone_enabled=self.clone_enabled.isChecked(),
+            clone_ref_path=self.clone_ref_edit.text().strip(),
         )

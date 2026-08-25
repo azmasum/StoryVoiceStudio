@@ -61,6 +61,8 @@ class GenerationOptions:
     sample_rate: int = 44100
     export_format: str = "wav"
     export_stems: bool = False
+    clone_enabled: bool = False
+    clone_ref_path: str = ""
     voice_character: str = "standard"   # standard|meditation|psychology
     preview_seconds: float = 0.0   # >0 builds a short preview render only
 
@@ -93,6 +95,8 @@ class GenerationOptions:
             custom_lufs=settings.custom_lufs,
             export_format=settings.export_format,
             export_stems=settings.export_stems,
+            clone_enabled=bool(getattr(settings, "clone_enabled", False)),
+            clone_ref_path=str(getattr(settings, "clone_ref_path", "") or ""),
             voice_character=character,
         )
 
@@ -344,6 +348,26 @@ class GenerationPipeline:
                     "compression.",
                 ],
             )
+
+        # Optional voice-clone tone transfer (post-master, pre-export)
+        if self.options.clone_enabled and self.options.clone_ref_path:
+            self._report(phase="master", overall_percent=95.0,
+                         message="Applying cloned voice...")
+            try:
+                from audio.clone.engine import convert_audio
+                final_audio, self.options.sample_rate = convert_audio(
+                    final_audio, self.options.sample_rate,
+                    Path(self.options.clone_ref_path))
+            except Exception as exc:  # noqa: BLE001 - surface to the user
+                raise UserFacingError(
+                    what="Voice clone failed.",
+                    why=str(exc),
+                    actions=[
+                        "Check the reference file/link and try again.",
+                        "Or untick 'Clone reference voice' to export "
+                        "without cloning.",
+                    ],
+                ) from exc
 
         # Export deliverables
         self._report(phase="export", overall_percent=98.0,

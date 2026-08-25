@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QPainter, QPen, QTextOption, QFont
 from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget
 
 from audio.waveform.peaks import extract_peaks
@@ -62,10 +62,21 @@ class ScriptEditor(QPlainTextEdit):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        # Bengali-first typography: proper conjunct rendering, comfortable
+        # line height and wrap-anywhere so long Bangla words never clip.
+        font = QFont()
+        font.setFamilies(["Noto Sans Bengali", "Nirmala UI", "Kalpurush",
+                          "SolaimanLipi", "Vrinda", "Segoe UI"])
+        font.setPointSize(12)
+        self.setFont(font)
+        self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+        self.setCursorWidth(2)
+        self.setTabChangesFocus(False)
         self.setPlaceholderText(
+            "এখানে বাংলা স্ক্রিপ্ট লিখুন বা পেস্ট করুন...\n"
             "Paste or write your story here...\n\n"
-            "Markers: [SCENE: Night Street] [PAUSE:2] [EMOTION:FEAR] "
-            "[WHISPER]"
+            "Markers: [PAUSE:2] [EMOTION:FEAR] [WHISPER] "
+            "[SCENE: Night Street]"
         )
         self.textChanged.connect(self.text_changed_relaxed)
 

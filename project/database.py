@@ -49,6 +49,10 @@ class GenerationSettings:
     meditation_preset: bool = False            # legacy (pre-0.2 projects)
     voice_character: str = "standard"          # standard|meditation|psychology
 
+    # Voice clone (OpenVoice tone transfer)
+    clone_enabled: bool = False
+    clone_ref_path: str = ""
+
 
 @dataclass
 class StoryProject:

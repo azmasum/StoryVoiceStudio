@@ -9,6 +9,9 @@ block_cipher = None
 datas = [
     ("..\\assets", "assets"),
     ("..\\models", "models"),
+    # Vendored MIT-licensed OpenVoice (voice-clone tone transfer). Copied
+    # as a top-level package so `import openvoice` resolves at runtime.
+    ("..\\audio\\clone\\openvoice", "openvoice"),
 ]
 datas += collect_data_files("piper", include_py_files=False)
 

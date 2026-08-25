@@ -44,6 +44,20 @@ def models_dir() -> Path:
     return path
 
 
+def clone_models_dir() -> Path:
+    """Checkpoints for the optional OpenVoice tone-cloning pack."""
+    path = models_dir() / "openvoice"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def references_dir() -> Path:
+    """Downloaded/uploaded voice-clone reference clips."""
+    path = data_dir() / "references"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def voices_dir() -> Path:
     path = models_dir() / "voices"
     path.mkdir(parents=True, exist_ok=True)
