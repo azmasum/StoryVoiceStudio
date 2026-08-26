@@ -28,6 +28,7 @@ a = Analysis(
         "scipy.signal",
         "scipy.io.wavfile",
         "PySide6.QtMultimedia",
+        "ctypes.wintypes",
     ],
     hookspath=[],
     hooksconfig={},
