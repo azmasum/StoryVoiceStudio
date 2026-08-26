@@ -155,70 +155,6 @@ class ControlsPanel(QWidget):
         master_form.addRow(self.export_stems)
         layout.addWidget(master_box)
 
-        # -- Voice clone (optional OpenVoice tone transfer) ------------------
-        from audio.clone import engine as clone_engine
-
-        clone_box = QGroupBox("Voice Clone (Beta)")
-        clone_form = QFormLayout(clone_box)
-        self.clone_enabled = QCheckBox("Clone reference voice")
-        self.clone_enabled.stateChanged.connect(self.settings_changed)
-        clone_form.addRow(self.clone_enabled)
-
-        ref_row = QHBoxLayout()
-        self.clone_ref_edit = QLineEdit()
-        self.clone_ref_edit.setPlaceholderText("Reference .wav / .mp3")
-        ref_browse = QPushButton("...")
-        ref_browse.setFixedWidth(28)
-        ref_browse.setToolTip("Browse for a reference voice clip")
-        ref_row.addWidget(self.clone_ref_edit, 1)
-        ref_row.addWidget(ref_browse)
-        ref_holder = QWidget()
-        ref_holder.setLayout(ref_row)
-        clone_form.addRow("Voice file:", ref_holder)
-
-        url_row = QHBoxLayout()
-        self.clone_url_edit = QLineEdit()
-        self.clone_url_edit.setPlaceholderText("https://... voice link")
-        url_fetch = QPushButton("Get")
-        url_fetch.setFixedWidth(34)
-        url_fetch.setToolTip("Download the linked clip as reference")
-        url_row.addWidget(self.clone_url_edit, 1)
-        url_row.addWidget(url_fetch)
-        url_holder = QWidget()
-        url_holder.setLayout(url_row)
-        clone_form.addRow("Voice link:", url_holder)
-
-        self.clone_status = QLabel(clone_engine.status_text())
-        self.clone_status.setWordWrap(True)
-        self.clone_status.setStyleSheet("color: #8a93a6;")
-        clone_form.addRow(self.clone_status)
-
-        def _browse_ref() -> None:
-            path, _ = QFileDialog.getOpenFileName(
-                self, "Select reference voice",
-                "", "Audio (*.wav *.mp3 *.flac *.ogg)")
-            if path:
-                self.clone_ref_edit.setText(path)
-                self._refresh_clone_status()
-
-        def _fetch_url() -> None:
-            url = self.clone_url_edit.text().strip()
-            if not url:
-                return
-            try:
-                from app.config.paths import references_dir
-                local = clone_engine.load_reference(url, references_dir())
-                self.clone_ref_edit.setText(str(local))
-                self._refresh_clone_status()
-            except Exception as exc:  # noqa: BLE001
-                self.clone_status.setText(f"Download failed: {exc}")
-                self.clone_status.setStyleSheet("color: #d9776b;")
-
-        ref_browse.clicked.connect(_browse_ref)
-        url_fetch.clicked.connect(_fetch_url)
-        self.clone_ref_edit.editingFinished.connect(self._refresh_clone_status)
-        layout.addWidget(clone_box)
-
         # Keep the panel narrow enough for a side column: combos must not
         # expand to their longest item's width.
         from PySide6.QtWidgets import QComboBox as _QCB
@@ -246,11 +182,30 @@ class ControlsPanel(QWidget):
             installed = is_voice_installed(entry["voice_id"])
             suffix = "" if installed else "  (download required)"
             self.voice_combo.addItem(entry["name"] + suffix, entry["voice_id"])
+        # Append saved voice-clone modules
+        from models.voice_modules import load_modules
+        modules = load_modules()
+        if modules:
+            self.voice_combo.insertSeparator(self.voice_combo.count())
+            for m in modules:
+                self.voice_combo.addItem(
+                    f"{m.name}  (cloned)", f"module:{m.name}")
         self.voice_combo.blockSignals(False)
         self._update_voice_info()
 
     def _update_voice_info(self) -> None:
         voice_id = self.current_voice_id()
+        if voice_id.startswith("module:"):
+            from models.voice_modules import load_modules
+            name = voice_id.split(":", 1)[1]
+            for m in load_modules():
+                if m.name == name:
+                    self.voice_label.setText(
+                        f"Cloned voice module: {m.name} "
+                        f"(strength {m.tau})")
+                    return
+            self.voice_label.setText("Cloned voice module (not found)")
+            return
         for entry in CATALOG_VOICES:
             if entry["voice_id"] == voice_id:
                 commercial = "YES" if entry["commercial_use"] else "NO"
@@ -346,31 +301,36 @@ class ControlsPanel(QWidget):
             else "standard")
         index = self.character_combo.findData(character)
         self.character_combo.setCurrentIndex(index if index >= 0 else 0)
-        self.clone_enabled.setChecked(
-            bool(getattr(settings, "clone_enabled", False)))
-        self.clone_ref_edit.setText(
-            str(getattr(settings, "clone_ref_path", "") or ""))
-        self._refresh_clone_status()
-
-    def _refresh_clone_status(self) -> None:
-        from audio.clone import engine as clone_engine
-        text = clone_engine.status_text()
-        ref = self.clone_ref_edit.text().strip()
-        if ref:
-            try:
-                local = clone_engine.load_reference(ref)
-                text = f"Reference OK: {local.name}"
-            except Exception as exc:  # noqa: BLE001
-                text = f"Reference problem: {exc}"
-        self.clone_status.setText(text)
-        self.clone_status.setStyleSheet(
-            "color: #7fbf7f;" if text.startswith(("Voice clone ready",
-                                                  "Reference OK"))
-            else "color: #8a93a6;")
+        # If settings had clone info, find matching module in combo
+        clone_enabled = getattr(settings, "clone_enabled", False)
+        clone_ref = getattr(settings, "clone_ref_path", "")
+        if clone_enabled and clone_ref:
+            from models.voice_modules import load_modules
+            for m in load_modules():
+                if clone_ref and m.name in clone_ref:
+                    idx = self.voice_combo.findData(f"module:{m.name}")
+                    if idx >= 0:
+                        self.voice_combo.setCurrentIndex(idx)
+                        return
 
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
+        voice_id = self.current_voice_id()
+        clone_enabled = False
+        clone_ref_path = ""
+        tau = 0.3
+        if voice_id.startswith("module:"):
+            from models.voice_modules import load_modules, module_ref_path
+            name = voice_id.split(":", 1)[1]
+            for m in load_modules():
+                if m.name == name:
+                    tau = m.tau
+                    break
+            ref = module_ref_path(name)
+            if ref:
+                clone_enabled = True
+                clone_ref_path = str(ref)
         return GenerationSettings(
-            voice_id=self.current_voice_id(),
+            voice_id=voice_id.split(":", 1)[0] if voice_id.startswith("module:") else voice_id,
             speaker_id=self.current_speaker_id(),
             target_wpm=int(self.wpm_spin.value()),
             preset=self.preset_combo.currentData() or DEFAULT_PRESET,
@@ -388,6 +348,6 @@ class ControlsPanel(QWidget):
             export_format=self.format_combo.currentText(),
             export_stems=self.export_stems.isChecked(),
             voice_character=self.character_combo.currentData() or "standard",
-            clone_enabled=self.clone_enabled.isChecked(),
-            clone_ref_path=self.clone_ref_edit.text().strip(),
+            clone_enabled=clone_enabled,
+            clone_ref_path=clone_ref_path,
         )

@@ -1,14 +1,19 @@
 """Dialogs: Model Manager, Settings, About, First-Run Wizard, Update."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -50,7 +55,7 @@ class ModelManagerDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Model Manager")
-        self.resize(720, 460)
+        self.resize(720, 620)
         self._thread: _DownloadThread | None = None
 
         layout = QVBoxLayout(self)
@@ -66,6 +71,44 @@ class ModelManagerDialog(QDialog):
         self.status.setWordWrap(True)
         layout.addWidget(self.progress)
         layout.addWidget(self.status)
+
+        # -- Voice Modules (cloned voice presets) --------------------------
+        sep = QLabel("<b>Voice Modules</b> (saved cloned voices)")
+        sep.setWordWrap(True)
+        layout.addWidget(sep)
+
+        mod_row = QHBoxLayout()
+        self.mod_ref_edit = QLineEdit()
+        self.mod_ref_edit.setPlaceholderText("Reference .wav / .mp3 (file or URL)")
+        browse_btn = QPushButton("Browse...")
+        browse_btn.setFixedWidth(80)
+        browse_btn.clicked.connect(self._browse_module_ref)
+        mod_row.addWidget(self.mod_ref_edit, 1)
+        mod_row.addWidget(browse_btn)
+        layout.addLayout(mod_row)
+
+        save_row = QHBoxLayout()
+        self.mod_name_edit = QLineEdit()
+        self.mod_name_edit.setPlaceholderText("Module name (e.g. My Voice)")
+        self.mod_tau_combo = QComboBox()
+        self.mod_tau_combo.addItems(["0.3 (gentle)", "0.5 (moderate)", "0.7 (strong)"])
+        save_btn = QPushButton("Save Module")
+        save_btn.clicked.connect(self._save_module)
+        save_row.addWidget(self.mod_name_edit, 2)
+        save_row.addWidget(QLabel("Strength:"))
+        save_row.addWidget(self.mod_tau_combo)
+        save_row.addWidget(save_btn)
+        layout.addLayout(save_row)
+
+        self.mod_status = QLabel()
+        self.mod_status.setWordWrap(True)
+        layout.addWidget(self.mod_status)
+
+        self.modules_browser = QTextBrowser()
+        self.modules_browser.setOpenLinks(False)
+        self.modules_browser.setMaximumHeight(160)
+        self.modules_browser.anchorClicked.connect(self._module_link)
+        layout.addWidget(self.modules_browser)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
@@ -108,6 +151,7 @@ class ModelManagerDialog(QDialog):
         )
         self.table.setHtml(html)
         self.table.anchorClicked.connect(self._handle_link)
+        self._refresh_modules()
 
     def _handle_link(self, url) -> None:
         text = url.toString()
@@ -153,6 +197,84 @@ class ModelManagerDialog(QDialog):
         self.status.setText(what)
         QMessageBox.warning(self, "Download failed",
                             f"{what}\n\nWhy: {why}\n\n" + "\n".join(actions))
+
+    def _browse_module_ref(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select reference voice clip", "",
+            "Audio (*.wav *.mp3 *.flac *.ogg)")
+        if path:
+            self.mod_ref_edit.setText(path)
+
+    def _save_module(self) -> None:
+        from models.voice_modules import save_module, load_modules
+
+        name = self.mod_name_edit.text().strip()
+        ref = self.mod_ref_edit.text().strip()
+        if not name:
+            self.mod_status.setText("Enter a module name.")
+            self.mod_status.setStyleSheet("color: #d9776b;")
+            return
+        if not ref:
+            self.mod_status.setText("Browse for a reference audio file first.")
+            self.mod_status.setStyleSheet("color: #d9776b;")
+            return
+        ref_path = Path(ref)
+        if ref.startswith("http://") or ref.startswith("https://"):
+            try:
+                from audio.clone import engine as clone_engine
+                from app.config.paths import references_dir
+                local = clone_engine.load_reference(ref, references_dir())
+                ref_path = local
+            except Exception as exc:
+                self.mod_status.setText(f"Download failed: {exc}")
+                self.mod_status.setStyleSheet("color: #d9776b;")
+                return
+        if not ref_path.exists():
+            self.mod_status.setText(f"File not found: {ref_path}")
+            self.mod_status.setStyleSheet("color: #d9776b;")
+            return
+        tau_text = self.mod_tau_combo.currentText()
+        tau = float(tau_text.split("(")[0].strip())
+        try:
+            save_module(name, ref_path, tau=tau)
+        except ValueError as exc:
+            self.mod_status.setText(str(exc))
+            self.mod_status.setStyleSheet("color: #d9776b;")
+            return
+        self.mod_status.setText(f"Saved '{name}'. Now appears in Voice dropdown.")
+        self.mod_status.setStyleSheet("color: #7fbf7f;")
+        self.mod_name_edit.clear()
+        self.mod_ref_edit.clear()
+        self._refresh_modules()
+
+    def _refresh_modules(self) -> None:
+        from models.voice_modules import load_modules
+
+        modules = load_modules()
+        if not modules:
+            self.modules_browser.setHtml(
+                "<p style='color:#8a93a6'>No saved modules yet.</p>")
+            return
+        rows = ["<tr><th>Name</th><th>Created</th><th>Strength</th><th></th></tr>"]
+        for m in modules:
+            created = m.created_at[:10] if m.created_at else "-"
+            rows.append(
+                f"<tr><td>{m.name}</td><td>{created}</td>"
+                f"<td>{m.tau}</td>"
+                f'<td><a href="delete:{m.name}">Delete</a></td></tr>')
+        html = ("<table border=1 cellspacing=0 cellpadding=4 width='100%'>"
+                + "".join(rows) + "</table>")
+        self.modules_browser.setHtml(html)
+
+    def _module_link(self, url) -> None:
+        text = url.toString()
+        if text.startswith("delete:"):
+            name = text.split(":", 1)[1]
+            from models.voice_modules import delete_module
+            if delete_module(name):
+                self.mod_status.setText(f"Deleted '{name}'.")
+                self.mod_status.setStyleSheet("color: #8a93a6;")
+            self._refresh_modules()
 
 
 class AboutDialog(QDialog):

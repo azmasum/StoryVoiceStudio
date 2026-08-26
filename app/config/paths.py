@@ -58,6 +58,12 @@ def references_dir() -> Path:
     return path
 
 
+def voice_modules_dir() -> Path:
+    path = data_dir() / "voice_modules"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def voices_dir() -> Path:
     path = models_dir() / "voices"
     path.mkdir(parents=True, exist_ok=True)

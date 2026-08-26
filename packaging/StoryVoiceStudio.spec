@@ -29,6 +29,7 @@ a = Analysis(
         "scipy.io.wavfile",
         "PySide6.QtMultimedia",
         "ctypes.wintypes",
+        "pickletools",
     ],
     hookspath=[],
     hooksconfig={},
