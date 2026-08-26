@@ -32,3 +32,4 @@ desktop.ini
 # Local Python build environment
 .build/
 clone_libs/
+models/voices/*/

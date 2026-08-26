@@ -1,0 +1,74 @@
+{
+  "en_US-danny-low": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/danny/low/en_US-danny-low.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63104526,
+    "sha256_onnx": "56a9ae9499e961514f060aac2866cb323a21e5989592fc4f208e56fdc323ab64",
+    "sha256_json": "191dea1ba9863199d8ca2e9048f83b219219fb450f62767ee02f1bc4568ce4f4"
+  },
+  "en_US-amy-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63201294,
+    "sha256_onnx": "b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18",
+    "sha256_json": "95a23eb4d42909d38df73bb9ac7f45f597dbfcde2d1bf9526fdeaf5466977d77"
+  },
+  "en_US-hfc_female-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/hfc_female/medium/en_US-hfc_female-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63201294,
+    "sha256_onnx": "914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7",
+    "sha256_json": "01826a1e3f85024066466a9d9d5bc4ded72e1548fa89e86baef7ba45438d4ff5"
+  },
+  "en_US-joe-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/joe/medium/en_US-joe-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63201294,
+    "sha256_onnx": "58afce0321b8d9c46d7cdf9c16500cc55a793b4220212dba6b70fb788b3baf06",
+    "sha256_json": "3d6d5410b3795cb1950595247ef8f06190719e6fdbfa3a2356d8ec368e1aad33"
+  },
+  "en_US-kusal-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/kusal/medium/en_US-kusal-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63201294,
+    "sha256_onnx": "438ae25bb305b2a7f6d632327d6102df25011f793e8222fa9db876e7321df8f3",
+    "sha256_json": "ddd3c4dfd8b4f568150c934fb94912dd788d44db87f4f0a328c469d7a6761f41"
+  },
+  "en_US-lessac-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 63201294,
+    "sha256_onnx": "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f",
+    "sha256_json": "efe19c417bed055f2d69908248c6ba650fa135bc868b0e6abb3da181dab690a0"
+  },
+  "en_US-ryan-high": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/ryan/high/en_US-ryan-high.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 120786792,
+    "sha256_onnx": "b3990d7606e183ec8dbfba70a4607074f162de1a0c412e0180d1ff60bb154eca",
+    "sha256_json": "c6d3b98f08315cb4bebf0d49d50fc4ff491b503c64b940cd3d5ca28543b48011"
+  },
+  "bn_BD-google-medium": {
+    "version": "v1.0.0",
+    "source": "https://huggingface.co/rhasspy/piper-voices/resolve/main/bn/bn_BD/google/medium/bn_BD-google-medium.onnx",
+    "license": "MIT",
+    "commercial_use": true,
+    "size_bytes": 76782515,
+    "sha256_onnx": "f2e7518ed5534a755024a48c71b80bf617efaf12570bbdf3ce255a9526a8afd3",
+    "sha256_json": "bc7e5e39e2a874bdad186620576ce18089b5a06c5645e258bcea3d56fdb11c0a"
+  }
+}

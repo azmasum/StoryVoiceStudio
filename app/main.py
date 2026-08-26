@@ -51,6 +51,24 @@ def main() -> int:
 
     _ = detect_hardware()  # logs capabilities early; never fatal on failure
 
+    # Voices shipped inside the app package become "installed" on first
+    # run, so the Model Manager shows them without any download.
+    try:
+        from models.bundled import seed_bundled_voices
+
+        seeded = seed_bundled_voices()
+        if seeded:
+            from app.utils.logging_setup import get_logger
+
+            get_logger(__name__).info(
+                "Seeded %d bundled voice(s): %s", len(seeded),
+                ", ".join(seeded))
+    except Exception:  # noqa: BLE001 - downloads remain a fallback
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Bundled-voice seeding failed; continuing")
+
     from app.ui.main_window import MainWindow
 
     window = MainWindow()

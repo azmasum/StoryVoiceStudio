@@ -32,7 +32,7 @@ if (-not $TargetDir) {
 }
 
 Write-Host "`nInstalling to: $TargetDir"
-robocopy $PayloadRoot $TargetDir /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+robocopy $PayloadRoot $TargetDir /E /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "Copy failed (robocopy exit $LASTEXITCODE)" }
 Write-Host "Application files copied."
 
