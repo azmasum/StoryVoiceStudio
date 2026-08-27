@@ -9,9 +9,8 @@ runs fine without them.
 from __future__ import annotations
 
 import hashlib
+import sys
 import urllib.parse
-import sys
-import sys
 import urllib.request
 from pathlib import Path
 from typing import Optional
@@ -43,7 +42,7 @@ def ensure_sys_path() -> None:
     vendor = str(_vendor_dir())   # makes `import openvoice` work in source mode
     for p in (libs, vendor):
         if p not in sys.path and Path(p).exists():
-            sys.path.insert(0, p)
+            sys.path.append(p)
 
 
 def checkpoint_paths() -> tuple[Path, Path]:

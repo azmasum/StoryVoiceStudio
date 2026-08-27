@@ -493,6 +493,10 @@ class MainWindow(QMainWindow):
 
     def _ensure_voice_installed(self) -> bool:
         voice_id = self.controls.current_voice_id()
+        # For cloned voice modules, check the base Piper voice instead
+        if voice_id.startswith("module:"):
+            from models.voice_modules import module_base_voice
+            voice_id = module_base_voice(voice_id.split(":", 1)[1])
         from models.downloader import is_voice_installed
 
         if is_voice_installed(voice_id):

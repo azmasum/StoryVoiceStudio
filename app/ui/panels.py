@@ -305,9 +305,11 @@ class ControlsPanel(QWidget):
         clone_enabled = getattr(settings, "clone_enabled", False)
         clone_ref = getattr(settings, "clone_ref_path", "")
         if clone_enabled and clone_ref:
-            from models.voice_modules import load_modules
+            from models.voice_modules import load_modules, module_ref_path
+            from app.config.paths import voice_modules_dir
             for m in load_modules():
-                if clone_ref and m.name in clone_ref:
+                m_ref = module_ref_path(m.name)
+                if m_ref and str(m_ref) == clone_ref:
                     idx = self.voice_combo.findData(f"module:{m.name}")
                     if idx >= 0:
                         self.voice_combo.setCurrentIndex(idx)
@@ -317,20 +319,20 @@ class ControlsPanel(QWidget):
         voice_id = self.current_voice_id()
         clone_enabled = False
         clone_ref_path = ""
-        tau = 0.3
         if voice_id.startswith("module:"):
-            from models.voice_modules import load_modules, module_ref_path
+            from models.voice_modules import (
+                load_modules, module_ref_path, module_base_voice)
             name = voice_id.split(":", 1)[1]
             for m in load_modules():
                 if m.name == name:
-                    tau = m.tau
                     break
             ref = module_ref_path(name)
             if ref:
                 clone_enabled = True
                 clone_ref_path = str(ref)
+            voice_id = module_base_voice(name)
         return GenerationSettings(
-            voice_id=voice_id.split(":", 1)[0] if voice_id.startswith("module:") else voice_id,
+            voice_id=voice_id,
             speaker_id=self.current_speaker_id(),
             target_wpm=int(self.wpm_spin.value()),
             preset=self.preset_combo.currentData() or DEFAULT_PRESET,

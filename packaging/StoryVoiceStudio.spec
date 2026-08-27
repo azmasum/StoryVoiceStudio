@@ -30,6 +30,7 @@ a = Analysis(
         "PySide6.QtMultimedia",
         "ctypes.wintypes",
         "pickletools",
+        "unittest.mock",
     ],
     hookspath=[],
     hooksconfig={},

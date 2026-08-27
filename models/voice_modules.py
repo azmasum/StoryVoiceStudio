@@ -18,6 +18,7 @@ MODULES_FILE = "modules.json"
 class VoiceModule:
     name: str
     reference_filename: str
+    base_voice_id: str = "en_US-lessac-medium"
     created_at: str = ""
     tau: float = 0.3
 
@@ -46,7 +47,8 @@ def _save_modules(modules: list[VoiceModule]) -> None:
     )
 
 
-def save_module(name: str, source_ref: Path, tau: float = 0.3) -> VoiceModule:
+def save_module(name: str, source_ref: Path, tau: float = 0.3,
+                base_voice_id: str = "en_US-lessac-medium") -> VoiceModule:
     from datetime import datetime, timezone
 
     modules = load_modules()
@@ -64,6 +66,7 @@ def save_module(name: str, source_ref: Path, tau: float = 0.3) -> VoiceModule:
     module = VoiceModule(
         name=name,
         reference_filename=dest.name,
+        base_voice_id=base_voice_id,
         created_at=datetime.now(timezone.utc).isoformat(),
         tau=tau,
     )
@@ -104,3 +107,11 @@ def module_tau(name: str) -> float:
         if m.name == name:
             return m.tau
     return 0.3
+
+
+def module_base_voice(name: str) -> str:
+    modules = load_modules()
+    for m in modules:
+        if m.name == name:
+            return m.base_voice_id
+    return "en_US-lessac-medium"

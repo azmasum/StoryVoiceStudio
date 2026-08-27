@@ -90,11 +90,17 @@ class ModelManagerDialog(QDialog):
         save_row = QHBoxLayout()
         self.mod_name_edit = QLineEdit()
         self.mod_name_edit.setPlaceholderText("Module name (e.g. My Voice)")
+        self.mod_base_voice = QComboBox()
+        from tts.voices.catalog import CATALOG_VOICES
+        for entry in CATALOG_VOICES:
+            self.mod_base_voice.addItem(entry["name"], entry["voice_id"])
         self.mod_tau_combo = QComboBox()
         self.mod_tau_combo.addItems(["0.3 (gentle)", "0.5 (moderate)", "0.7 (strong)"])
         save_btn = QPushButton("Save Module")
         save_btn.clicked.connect(self._save_module)
         save_row.addWidget(self.mod_name_edit, 2)
+        save_row.addWidget(QLabel("Base voice:"))
+        save_row.addWidget(self.mod_base_voice)
         save_row.addWidget(QLabel("Strength:"))
         save_row.addWidget(self.mod_tau_combo)
         save_row.addWidget(save_btn)
@@ -235,8 +241,9 @@ class ModelManagerDialog(QDialog):
             return
         tau_text = self.mod_tau_combo.currentText()
         tau = float(tau_text.split("(")[0].strip())
+        base_voice = self.mod_base_voice.currentData() or "en_US-lessac-medium"
         try:
-            save_module(name, ref_path, tau=tau)
+            save_module(name, ref_path, tau=tau, base_voice_id=base_voice)
         except ValueError as exc:
             self.mod_status.setText(str(exc))
             self.mod_status.setStyleSheet("color: #d9776b;")
@@ -255,12 +262,12 @@ class ModelManagerDialog(QDialog):
             self.modules_browser.setHtml(
                 "<p style='color:#8a93a6'>No saved modules yet.</p>")
             return
-        rows = ["<tr><th>Name</th><th>Created</th><th>Strength</th><th></th></tr>"]
+        rows = ["<tr><th>Name</th><th>Base Voice</th><th>Created</th><th>Strength</th><th></th></tr>"]
         for m in modules:
             created = m.created_at[:10] if m.created_at else "-"
             rows.append(
-                f"<tr><td>{m.name}</td><td>{created}</td>"
-                f"<td>{m.tau}</td>"
+                f"<tr><td>{m.name}</td><td>{m.base_voice_id}</td>"
+                f"<td>{created}</td><td>{m.tau}</td>"
                 f'<td><a href="delete:{m.name}">Delete</a></td></tr>')
         html = ("<table border=1 cellspacing=0 cellpadding=4 width='100%'>"
                 + "".join(rows) + "</table>")
