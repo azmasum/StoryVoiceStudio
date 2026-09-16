@@ -174,14 +174,16 @@ class PiperProvider(TTSProvider):
     # -- metadata / measurement ----------------------------------------------
 
     def natural_wpm(self, voice_id: str) -> float:
-        """Measure the voice's natural rate once and cache it."""
+        """Measure the voice's natural rate once and cache it.
+
+        Calibration text must match the voice's language: measuring a
+        Bengali voice with English text collapses phoneme durations and
+        yields a garbage rate (observed >=300 WPM), which then stretches
+        all Bengali synthesis ~2x and destroys quality.
+        """
         if voice_id in self._wpm_cache:
             return self._wpm_cache[voice_id]
-        calibration_text = (
-            "The old house stood at the end of the lane, its windows dark "
-            "against the evening sky. Nobody had lived there for twenty "
-            "years, and nobody wanted to talk about the reason why."
-        )
+        calibration_text = _calibration_text(voice_id)
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,6 +238,27 @@ class PiperProvider(TTSProvider):
             supports_pitch_control=False,
             multi_speaker=False,
         )
+
+
+def _calibration_text(voice_id: str) -> str:
+    """Neutral calibration passage in the voice's own language."""
+    try:
+        from tts.voices.catalog import get_voice
+
+        info = get_voice(voice_id)
+        accent = (info.accent if info else "") or ""
+    except Exception:  # noqa: BLE001 - fall back to English
+        accent = ""
+    if accent.lower().startswith("bn") or voice_id.startswith("bn_"):
+        return (
+            "একটি ছোট গ্রামে একজন বৃদ্ধ কৃষক বাস করতেন। "
+            "প্রতিদিন ভোরে তিনি মাঠে কাজ করতে যেতেন।"
+        )
+    return (
+        "The old house stood at the end of the lane, its windows dark "
+        "against the evening sky. Nobody had lived there for twenty "
+        "years, and nobody wanted to talk about the reason why."
+    )
 
 
 def _wave_duration(path: Path) -> float:

@@ -14,7 +14,7 @@ from script.markup import ParsedScript, Segment
 
 SCENE_MARKER = re.compile(r"^\s*(?:\[\s*SCENE\s*:?\s*([^\]]*)\]\s*|#{1,3}\s*(.+))$", re.IGNORECASE)
 SENTENCE_SPLIT = re.compile(
-    r"(?<=[.!?])\s+(?=[\"'A-Z0-9])|(?<=[.!?])(?=\n)|(?<=[.!?][\"”’])\s+"
+    r"(?<=[.!?।])\s+(?=[\"'A-Z0-9\u0980-\u09FF])|(?<=[.!?।])(?=\n)|(?<=[.!?।][\"”’])\s+"
 )
 ABBREVIATIONS = {
     "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc", "inc",
@@ -100,7 +100,7 @@ def _hard_split(sentence: str, max_chars: int = MAX_SENTENCE_CHARS) -> list[str]
     if len(sentence) <= max_chars:
         return [sentence]
     pieces: list[str] = []
-    clauses = re.split(r"(?<=[,;:])\s+", sentence)
+    clauses = re.split(r"(?<=[,;:।])\s+", sentence)
     current = ""
     for clause in clauses:
         if len(current) + len(clause) + 1 <= max_chars:

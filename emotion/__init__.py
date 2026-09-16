@@ -10,7 +10,10 @@ from emotion.analyzer import (
 from emotion.presets import PRESETS, DEFAULT_PRESET, StoryPreset, get_preset, preset_names
 from emotion.prosody import (
     EMOTION_PROFILES,
+    LENGTH_SCALE_MAX,
+    LENGTH_SCALE_MIN,
     ProsodyPlan,
+    clamp_length_scale,
     plan_prosody,
     wpm_to_length_scale,
 )
@@ -28,7 +31,10 @@ __all__ = [
     "get_preset",
     "preset_names",
     "EMOTION_PROFILES",
+    "LENGTH_SCALE_MAX",
+    "LENGTH_SCALE_MIN",
     "ProsodyPlan",
+    "clamp_length_scale",
     "plan_prosody",
     "wpm_to_length_scale",
 ]

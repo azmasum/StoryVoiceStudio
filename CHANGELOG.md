@@ -4,6 +4,22 @@ All notable changes to StoryVoice Studio are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed (voice quality)
+- Bengali voices were synthesized ~2x slower than natural (slurred,
+  robotic): WPM calibration now uses a Bengali passage for Bengali
+  voices instead of English text (measured 300 WPM before, ~150 after).
+- All voices: TTS length_scale clamped to 0.8-1.25 so pacing control can
+  no longer stretch speech into metallic/slurred artifacts; the WPM
+  retry correction is clamped too and its adopt/reject comparison fixed
+  (absolute vs relative WPM was compared).
+- Bengali paragraphs are now split into sentences at the danda (।), so
+  long passages no longer render as one giant TTS request with prosody
+  drift; clause fallback and emotion analysis handle । as well.
+- Chunk joints no longer click/pop: voice events get 4 ms fade-in /
+  8 ms fade-out raised-cosine micro-fades at mixdown.
+
 ## [0.1.0] - 2026-08-22
 
 First public alpha.

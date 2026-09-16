@@ -27,7 +27,7 @@ from audio.dsp import psych as psych_mod
 from audio.mastering.chain import MasteringSettings, master_mix, master_voice
 from audio.mixer.mixdown import TrackEvent, mixdown
 from emotion.presets import StoryPreset, get_preset
-from emotion.prosody import plan_prosody, wpm_to_length_scale
+from emotion.prosody import clamp_length_scale, plan_prosody, wpm_to_length_scale
 from export.mp3 import export_mp3
 from export.wav import export_flac, export_wav
 from project.cache import ChunkCache, chunk_cache_key
@@ -451,16 +451,16 @@ class GenerationPipeline:
             preset=self.preset,
             global_intensity=self.options.emotion_intensity,
         )
-        length_scale = round(base_scale * plan.length_scale, 5)
+        length_scale = clamp_length_scale(base_scale * plan.length_scale)
 
         meditation = self.options.meditation_preset
         psychology = self.options.voice_character == "psychology"
         if meditation:
-            length_scale = round(
-                length_scale * meditation_mod.LENGTH_SCALE_MULTIPLIER, 5)
+            length_scale = clamp_length_scale(
+                length_scale * meditation_mod.LENGTH_SCALE_MULTIPLIER)
         elif psychology:
-            length_scale = round(
-                length_scale * psych_mod.LENGTH_SCALE_MULTIPLIER, 5)
+            length_scale = clamp_length_scale(
+                length_scale * psych_mod.LENGTH_SCALE_MULTIPLIER)
 
         key = chunk_cache_key(
             chunk.text, self.options.voice_id, self.options.engine,
@@ -490,12 +490,16 @@ class GenerationPipeline:
         if (not (meditation or psychology)
                 and deviation > WPM_DEVIATION_LIMIT
                 and result.actual_wpm > 0):
-            corrected_scale = round(
-                length_scale * result.actual_wpm / chunk.wpm_target, 5)
+            corrected_scale = clamp_length_scale(
+                length_scale * result.actual_wpm / chunk.wpm_target)
             retry = provider.synthesize(tts_text, tmp, self.options.voice_id,
                                         length_scale=corrected_scale,
                                         speaker_id=self.options.speaker_id)
-            if abs(retry.actual_wpm - chunk.wpm_target) < deviation:
+            retry_deviation = (
+                abs(retry.actual_wpm - chunk.wpm_target) / chunk.wpm_target
+                if retry.actual_wpm > 0 else deviation
+            )
+            if retry_deviation < deviation:
                 result = retry
 
         _trim_chunk_tail(tmp)

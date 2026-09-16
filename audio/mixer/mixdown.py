@@ -81,6 +81,28 @@ def _fades(samples: np.ndarray, rate: int,
     return out
 
 
+def _micro_fades(samples: np.ndarray, rate: int,
+                 fade_in_ms: float = 4.0,
+                 fade_out_ms: float = 8.0) -> np.ndarray:
+    """Raised-cosine edge fades that kill clicks at chunk joints.
+
+    Consecutive TTS chunks are butt-jointed on the timeline; when a chunk
+    starts or ends at a non-zero sample the discontinuity is heard as a
+    click/pop. A few milliseconds of raised-cosine fade is inaudible but
+    removes the transient entirely.
+    """
+    out = samples
+    n_in = min(len(out), int(rate * fade_in_ms / 1000.0))
+    if n_in > 1:
+        ramp = 0.5 - 0.5 * np.cos(np.pi * np.arange(n_in) / n_in)
+        out[:n_in] *= ramp.astype(np.float32)
+    n_out = min(len(out), int(rate * fade_out_ms / 1000.0))
+    if n_out > 1:
+        ramp = 0.5 + 0.5 * np.cos(np.pi * (np.arange(n_out) + 1) / n_out)
+        out[-n_out:] *= ramp.astype(np.float32)
+    return out
+
+
 def render_track(events: list[TrackEvent], total_samples: int,
                  sample_rate: int) -> np.ndarray:
     """Render one track by placing every event on the shared timeline."""
@@ -94,6 +116,8 @@ def render_track(events: list[TrackEvent], total_samples: int,
         audio = _apply_gain(audio, event.gain_db)
         audio = _fades(audio, sample_rate, event.fade_in_seconds,
                        event.fade_out_seconds)
+        if event.track == "VOICE":
+            audio = _micro_fades(audio, sample_rate)
         start = int(event.start_seconds * sample_rate)
         end = min(len(canvas), start + len(audio))
         if end <= start or start >= len(canvas):

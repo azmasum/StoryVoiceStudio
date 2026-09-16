@@ -38,7 +38,7 @@ DIALOGUE_TAG = re.compile(
 )
 QUOTE = re.compile(r"[\"“”‘’].+?[\"“”‘’]")
 
-SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?।])\s+")
 
 
 @dataclass

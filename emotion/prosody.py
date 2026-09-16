@@ -90,4 +90,20 @@ def wpm_to_length_scale(natural_wpm: float, target_wpm: int) -> float:
     """Convert a words-per-minute target into a Piper-style length scale."""
     if natural_wpm <= 0 or target_wpm <= 0:
         return 1.0
-    return round(max(0.5, min(2.5, natural_wpm / target_wpm)), 4)
+    return clamp_length_scale(natural_wpm / target_wpm)
+
+
+# Piper/VITS duration scaling stays transparent roughly within ±25%.
+# Beyond that the voice turns slurred (slow) or chipmunk-like (fast),
+# so every length_scale in the pipeline is clamped to this window.
+LENGTH_SCALE_MIN = 0.8
+LENGTH_SCALE_MAX = 1.25
+
+
+def clamp_length_scale(value: float) -> float:
+    """Clamp a TTS length_scale into the artifact-free window."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 1.0
+    return round(max(LENGTH_SCALE_MIN, min(LENGTH_SCALE_MAX, number)), 4)
