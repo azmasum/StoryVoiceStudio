@@ -201,16 +201,22 @@ def test_resume_skips_cached_chunks(tmp_path: Path, monkeypatch):
     cache = ChunkCache(tmp_path / "cache")
 
     # Pre-populate cache for the first chunk only.
-    from emotion.prosody import plan_prosody, wpm_to_length_scale
+    from app.core.generator import _hash01
+    from emotion.prosody import (clamp_length_scale, plan_prosody,
+                                 wpm_to_length_scale)
     from project.cache import chunk_cache_key
 
     first = chunks[0]
     plan = plan_prosody(first.emotion or "NEUTRAL", first.effects, 0.0,
                         first.pause_after, global_intensity=0.7)
+    micro_rate = 1.0 + (_hash01("rate:" + first.text) - 0.5) * 0.04
+    scale = clamp_length_scale(
+        wpm_to_length_scale(150.0, first.wpm_target)
+        * plan.length_scale * micro_rate)
     key = chunk_cache_key(first.text, options.voice_id, options.engine,
-                          round(wpm_to_length_scale(150.0, first.wpm_target)
-                                * plan.length_scale, 5),
-                          first.wpm_target, first.emotion)
+                          scale,
+                          first.wpm_target, first.emotion,
+                          effects=tuple(sorted(first.effects)))
     source = tmp_path / "seed.wav"
     t = np.linspace(0, 1.0, RATE, endpoint=False)
     sf.write(str(source), (0.2 * np.sin(2 * np.pi * 250 * t)).astype(np.float32), RATE)

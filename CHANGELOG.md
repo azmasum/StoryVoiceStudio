@@ -20,6 +20,26 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - Chunk joints no longer click/pop: voice events get 4 ms fade-in /
   8 ms fade-out raised-cosine micro-fades at mixdown.
 
+### Added (natural delivery)
+- Bengali emotion detection: cue-word lexicon (ভয়, হাসি, কান্না...),
+  Bengali dialogue verbs (বলল, জিজ্ঞেস করল...), Bengali question words
+  and whisper cues — Bengali narration is no longer stuck on Neutral.
+- Humanized pacing: a short storytelling breath between sentences plus
+  deterministic ±15% pause jitter and ±2% rate drift, so delivery never
+  ticks like a metronome (stable across runs, cache-safe).
+- Real emphasis: `[EMPHASIS]...[/EMPHASIS]` scopes a span (effect close
+  tags now supported) that renders slightly slower and +1.5 dB hotter;
+  auto-detected `[WHISPER]` spans are scoped the same way.
+
+### Notes (Bengali voice model)
+- Audited all 16 bn_BD-google-medium speakers objectively: all healthy,
+  no clipping, normal dynamics — kept default speaker 0.
+- No better Piper-compatible Bengali ONNX exists upstream; the "Indian"
+  colour comes from the shared espeak-ng Bengali phonemizer, which code
+  cannot change. License-clean upgrade path (needs a big download and is
+  slow on CPU-only machines): Indic Parler-TTS (Apache-2.0, Bengali +
+  emotion control) or IndicF5-Bangladeshi (Bangladeshi accent finetune).
+
 ## [0.1.0] - 2026-08-22
 
 First public alpha.

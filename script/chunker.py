@@ -6,6 +6,7 @@ Never splits inside a sentence unless absolutely necessary.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Iterable
@@ -208,6 +209,7 @@ def build_chunks(
 
     buffer: list[tuple[str, Segment, int]] = []
     buffer_scene = 0
+    buffer_effects: frozenset[str] = frozenset()
 
     def emit() -> None:
         nonlocal buffer, chunk_id
@@ -225,16 +227,21 @@ def build_chunks(
             prev = chunks[-1]
             if prev.scene_id == scenes[last_scene][0]:
                 pause_before = segments[0].pause_after * 0.5
+        joined = " ".join(texts)
+        pause_after = segments[-1].pause_after
+        if _ends_sentence(joined) and pause_after < BREATH_PAUSE_SECONDS:
+            pause_after = BREATH_PAUSE_SECONDS
+        pause_after = _humanize_pause(pause_after, joined)
         chunks.append(Chunk(
             chunk_id=chunk_id,
             scene_id=scenes[last_scene][0],
             scene_title=scenes[last_scene][1],
             index_in_scene=sum(1 for c in chunks if c.scene_id == scenes[last_scene][0]),
-            text=" ".join(texts),
+            text=joined,
             emotion=emotions[-1] if emotions else "",
             effects=frozenset(effects),
             pause_before=pause_before,
-            pause_after=segments[-1].pause_after,
+            pause_after=pause_after,
             voice=voice,
             wpm_target=target_wpm,
         ))
@@ -242,15 +249,19 @@ def build_chunks(
         buffer = []
 
     for scene_idx, _title, sentence, seg in flat_sentences:
-        if buffer and (scene_idx != buffer_scene or len(buffer) >= 4):
+        seg_effects = frozenset(seg.effects)
+        if buffer and (scene_idx != buffer_scene or len(buffer) >= 4
+                       or seg_effects != buffer_effects):
             emit()
         if sentence.count(" ") + 1 >= words_per_chunk:
             emit()
             buffer.append((sentence, seg, scene_idx))
             buffer_scene = scene_idx
+            buffer_effects = seg_effects
             continue
         if not buffer:
             buffer_scene = scene_idx
+            buffer_effects = seg_effects
         buffer.append((sentence, seg, scene_idx))
 
     emit()
@@ -265,6 +276,31 @@ def estimate_duration(word_count: int, wpm: int, pauses: float = 0.0) -> float:
     """Estimated spoken seconds for *word_count* at *wpm* plus pause time."""
     base = (word_count / max(60, wpm)) * 60
     return round(base + pauses, 3)
+
+
+# A storytelling breath between sentences. Without it every sentence
+# machine-guns into the next at an identical rhythm (the "metronome
+# effect" that makes listeners tune out). Explicit [PAUSE:X] tags still
+# dominate; this is only the floor for plain sentence boundaries.
+BREATH_PAUSE_SECONDS = 0.35
+
+
+def _hash01(key: str) -> float:
+    """Deterministic pseudo-random 0..1 from text (stable across runs, so
+    cached chunks and re-renders stay identical)."""
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
+    return int(digest, 16) / 0xFFFFFFFF
+
+
+def _humanize_pause(base_seconds: float, key: str) -> float:
+    """Jitter a pause by deterministic ±15% so no two gaps feel identical."""
+    if base_seconds <= 0:
+        return 0.0
+    return round(base_seconds * (0.85 + 0.30 * _hash01("pause:" + key)), 3)
+
+
+def _ends_sentence(text: str) -> bool:
+    return text.rstrip().endswith(tuple(".!?।"))
 
 
 def total_estimated_duration(chunks: Iterable[Chunk]) -> float:

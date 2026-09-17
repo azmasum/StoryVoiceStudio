@@ -21,9 +21,11 @@ Paste or import (File → Import Script) your story. Supported markers:
 | `[PAUSE:1.5]` | Inserts 1.5 seconds of silence |
 | `[EMOTION:FEAR]` | Applies an emotion until changed (CALM, HAPPY, SAD, FEAR, HORROR, SUSPENSE, EXCITED, ANGRY, SURPRISE, ROMANTIC, MYSTERIOUS, SERIOUS, HOPEFUL, DRAMATIC) |
 | `[WHISPER]` | Whispered delivery |
+| `[EMPHASIS]...[/EMPHASIS]` | Emphasized span: rendered slightly slower and hotter so it lands with weight |
 
 Without markers, **automatic emotion detection** reads dialogue tags
-("she whispered"), cue words ("screamed", "sobbed") and punctuation. When in
+("she whispered"), cue words ("screamed", "sobbed") and punctuation — in
+both English and Bengali. When in
 doubt it stays Neutral — never over-dramatic.
 
 Numbers, years, dates and currency are normalized for natural US-English

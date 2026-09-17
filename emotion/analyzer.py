@@ -32,6 +32,30 @@ CUE_WORDS: list[tuple[tuple[str, ...], str]] = [
     (("hope", "believed", "dreamed"), "HOPEFUL"),
 ]
 
+# Bengali cue stems -> emotion. Checked as substrings (case has no meaning
+# in Bengali script); stems are chosen to survive common inflections.
+BN_CUE_WORDS: list[tuple[tuple[str, ...], str]] = [
+    (("ফিসফিস",), "WHISPER"),
+    (("চিৎকার", "চেঁচিয়ে", "চেঁচাল", "আর্তনাদ"), "EXCITED"),
+    (("কাঁদ", "কেঁদে", "চোখের পানি", "অশ্রু"), "SAD"),
+    (("হাস", "হেসে", "মুচকি"), "HAPPY"),
+    (("ভয়", "আতঙ্ক", "শিউরে", "কেঁপে"), "FEAR"),
+    (("রক্ত", "লাশ", "মৃতদেহ", "খুন"), "HORROR"),
+    (("গোপন", "রহস্য", "ছায়া", "পায়ের শব্দ"), "SUSPENSE"),
+    (("হঠাৎ", "আচমকা"), "SURPRISE"),
+    (("রাগ", "রেগে", "ক্রোধ", "গর্জন"), "ANGRY"),
+    (("ভালোবাস", "প্রেম", "আলিঙ্গন"), "ROMANTIC"),
+    (("অদ্ভুত", "অদৃশ্য", "রহস্যময়"), "MYSTERIOUS"),
+    (("আশা", "স্বপ্ন", "বিশ্বাস"), "HOPEFUL"),
+]
+
+BN_FEAR_WORDS = ("বাঁচাও", "থাম", "দৌড়", "পালাও")
+BN_WH_WORDS = r"কে|কী|কেন|কিভাবে|কোথায়|কখন|কোন|কেমন"
+# \b breaks on Bengali vowel signs/nukta, so Bengali matching uses
+# script-block (U+0980-U+09FF) lookarounds instead of word boundaries.
+BN_LOOKBEHIND = r"(?<![\u0980-\u09FF])"
+BN_LOOKAHEAD = r"(?![\u0980-\u09FF])"
+
 DIALOGUE_TAG = re.compile(
     r"\b(?P<name>[A-Z][a-z]+)\s+(?P<verb>said|asked|replied|whispered|"
     r"shouted|murmured|sobbed|laughed|growled|breathed)\b"
@@ -39,6 +63,15 @@ DIALOGUE_TAG = re.compile(
 QUOTE = re.compile(r"[\"“”‘’].+?[\"“”‘’]")
 
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?।])\s+")
+
+# Bengali dialogue verbs (Bengali script has no capitalized names, so the
+# verb alone marks dialogue).
+BN_DIALOGUE_VERBS = (
+    "বললেন", "বলল", "বলে উঠল", "জিজ্ঞেস করলেন", "জিজ্ঞেস করল",
+    "প্রশ্ন করল", "উত্তর দিল", "চিৎকার করে বলল", "ফিসফিস করে বলল",
+    "হেসে বলল", "কেঁদে বলল", "ডাক দিল", "ডাকল", "বলতে লাগল",
+)
+BN_DIALOGUE_RE = re.compile("|".join(BN_DIALOGUE_VERBS))
 
 
 @dataclass
@@ -54,6 +87,8 @@ def _detect_dialogue(sentence: str) -> tuple[bool, str]:
     match = DIALOGUE_TAG.search(sentence)
     if match:
         return True, match.group("name")
+    if BN_DIALOGUE_RE.search(sentence):
+        return True, ""
     if QUOTE.search(sentence):
         return True, ""
     return False, ""
@@ -64,6 +99,10 @@ def _cue_emotion(sentence_lower: str) -> tuple[str, float]:
         for cue in cues:
             if cue in sentence_lower:
                 return emotion, 0.75
+    for cues, emotion in BN_CUE_WORDS:
+        for cue in cues:
+            if cue in sentence_lower:
+                return emotion, 0.75
     return "", 0.0
 
 
@@ -71,9 +110,14 @@ def _punctuation_emotion(sentence: str) -> tuple[str, float]:
     if sentence.rstrip().endswith("!"):
         if any(w in sentence.lower() for w in ("no", "stop", "run", "help")):
             return "FEAR", 0.6
+        if any(w in sentence for w in BN_FEAR_WORDS):
+            return "FEAR", 0.6
         return "EXCITED", 0.5
     if sentence.rstrip().endswith("?") and re.search(r"\b(who|what|where|why|how)\b",
                                                      sentence.lower()):
+        return "MYSTERIOUS", 0.4
+    if sentence.rstrip().endswith("?") and re.search(
+            rf"{BN_LOOKBEHIND}(?:{BN_WH_WORDS}){BN_LOOKAHEAD}", sentence):
         return "MYSTERIOUS", 0.4
     return "", 0.0
 
@@ -89,7 +133,7 @@ def analyze_sentence(sentence: str) -> SentenceAnalysis:
     result = SentenceAnalysis(text=sentence, emotion=emotion or "NEUTRAL",
                               is_dialogue=is_dialogue, speaker=speaker,
                               intensity=conf)
-    if re.search(r"\bwhisper(ed|s)?\b", lower):
+    if re.search(r"\bwhisper(ed|s)?\b", lower) or "ফিসফিস" in lower:
         result.emotion = "WHISPER"
         result.intensity = max(result.intensity, 0.8)
     return result
@@ -167,7 +211,7 @@ def annotate_script(text: str, intensity: float = 0.7) -> str:
         analysis = analyze_sentence(sentence)
         emotion = analysis.emotion
         if emotion == "WHISPER":
-            out_parts.append(f"[WHISPER]{sentence}")
+            out_parts.append(f"[WHISPER]{sentence}[/WHISPER]")
             current_emotion = "NEUTRAL"
             continue
         if analysis.intensity >= threshold and emotion != current_emotion:

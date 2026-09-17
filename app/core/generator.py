@@ -242,6 +242,7 @@ class GenerationPipeline:
                 voice_events.append(TrackEvent(
                     path=chunk.audio_path,
                     start_seconds=cursor + chunk.pause_before,
+                    gain_db=_chunk_gain(chunk),
                     track="VOICE",
                 ))
                 cursor += chunk.pause_before + duration + chunk.pause_after
@@ -265,6 +266,7 @@ class GenerationPipeline:
             voice_events.append(TrackEvent(
                 path=str(wav_path),
                 start_seconds=cursor + chunk.pause_before,
+                gain_db=_chunk_gain(chunk),
                 track="VOICE",
             ))
             cursor += chunk.pause_before + duration + chunk.pause_after
@@ -451,7 +453,15 @@ class GenerationPipeline:
             preset=self.preset,
             global_intensity=self.options.emotion_intensity,
         )
-        length_scale = clamp_length_scale(base_scale * plan.length_scale)
+        # Human touch: deterministic ±2% rate drift per chunk so the
+        # narration never ticks like a metronome. Seeded by text, hence
+        # stable across runs and cache-safe (it feeds the cache key).
+        micro_rate = 1.0 + (_hash01("rate:" + chunk.text) - 0.5) * 0.04
+        # Emphasized spans are carved into their own chunks by the chunker;
+        # render them slightly slower and hotter so they land with weight.
+        emphasis_boost = 1.05 if "emphasis" in chunk.effects else 1.0
+        length_scale = clamp_length_scale(
+            base_scale * plan.length_scale * micro_rate * emphasis_boost)
 
         meditation = self.options.meditation_preset
         psychology = self.options.voice_character == "psychology"
@@ -467,6 +477,7 @@ class GenerationPipeline:
             length_scale, chunk.wpm_target, chunk.emotion,
             speaker_id=self.options.speaker_id,
             character=self.options.voice_character,
+            effects=tuple(sorted(chunk.effects)),
         )
         cached = self.cache.get(key)
         if cached is not None:
@@ -584,6 +595,20 @@ def _trim_chunk_tail(path: Path, tail_keep_seconds: float = 0.6) -> None:
 MEDITATION_BREATH_SECONDS = 1.5
 PSYCH_BEAT_SECONDS = 0.9
 _SENTENCE_ENDINGS = tuple("।!?.；")
+EMPHASIS_GAIN_DB = 1.5
+
+
+def _hash01(key: str) -> float:
+    """Deterministic pseudo-random 0..1 (stable renders, cache-safe)."""
+    import hashlib
+
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
+    return int(digest, 16) / 0xFFFFFFFF
+
+
+def _chunk_gain(chunk: Chunk) -> float:
+    """Emphasized spans sit slightly hotter in the mix."""
+    return EMPHASIS_GAIN_DB if "emphasis" in chunk.effects else 0.0
 
 
 def _ends_sentence(text: str) -> bool:

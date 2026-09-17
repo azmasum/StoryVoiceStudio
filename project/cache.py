@@ -22,6 +22,7 @@ def chunk_cache_key(
     emotion: str,
     speaker_id: int | None = None,
     character: str = "standard",
+    effects: tuple[str, ...] | frozenset[str] = (),
 ) -> str:
     payload = json.dumps(
         {
@@ -33,6 +34,7 @@ def chunk_cache_key(
             "emotion": emotion,
             "speaker": speaker_id,
             "character": character,
+            "effects": sorted(effects),
         },
         sort_keys=True,
     )

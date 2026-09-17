@@ -8,6 +8,9 @@ Supported inline tags (case-insensitive):
 
 Tags apply from their position until the next tag of the same family or the
 end of the paragraph. Unknown tags are stripped safely and reported.
+Effect tags accept an explicit close tag to scope them to a span:
+
+    [EMPHASIS]these words[/EMPHASIS] land with extra weight.
 """
 from __future__ import annotations
 
@@ -15,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterator
 
-TAG_PATTERN = re.compile(r"\[([A-Z_a-z]+)(?::([^\]]*))?\]")
+TAG_PATTERN = re.compile(r"\[([/]?[A-Z_a-z]+)(?::([^\]]*))?\]")
 
 EFFECT_TAGS = {
     "WHISPER": "whisper",
@@ -101,6 +104,10 @@ def parse_markup(raw: str) -> ParsedScript:
         if head in EFFECT_TAGS:
             flush("".join(buffer)); buffer = []
             effects.add(EFFECT_TAGS[head])
+            continue
+        if head.startswith("/") and head[1:] in EFFECT_TAGS:
+            flush("".join(buffer)); buffer = []
+            effects.discard(EFFECT_TAGS[head[1:]])
             continue
         if head == "EMOTION":
             flush("".join(buffer)); buffer = []
