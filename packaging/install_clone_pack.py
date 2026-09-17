@@ -1,4 +1,4 @@
-"""Install the optional voice-clone pack (OpenVoice v2 tone transfer).
+"""Install the optional voice packs (OpenVoice v2 tone transfer + Parler TTS).
 
 Usage:
     python packaging/install_clone_pack.py [--source] [--dist PATH]
@@ -7,7 +7,8 @@ Usage:
 - --dist PATH   install into <PATH>/clone_libs next to a built EXE
 
 Both flags may be combined.  Model checkpoints always go to the app
-data dir (paths.clone_models_dir()).
+data dir (paths.clone_models_dir()).  Parler voice checkpoints (~4 GB)
+are downloaded on demand from the Model Manager instead.
 """
 from __future__ import annotations
 
@@ -67,6 +68,11 @@ def main() -> None:
 
     for root in roots:
         pip_target(root, ["torch", "librosa"])
+        # Transformer TTS stack for the optional Parler engine
+        # (indic-parler-tts, Apache-2.0). Heavy but CPU-runnable.
+        pip_target(root, ["transformers", "tokenizers", "safetensors",
+                          "huggingface_hub", "sentencepiece", "parler-tts",
+                          "accelerate"])
 
     from app.config.paths import clone_models_dir, data_dir
     models = clone_models_dir()

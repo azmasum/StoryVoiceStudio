@@ -501,9 +501,14 @@ class MainWindow(QMainWindow):
 
         if is_voice_installed(voice_id):
             return False
+        from tts.voices.catalog import get_voice
+
+        info = get_voice(voice_id)
+        size_hint = (f" (~{info.model_size_mb:.0f} MB, one time)"
+                     if info else " (~60-120 MB, one time)")
         answer = QMessageBox.question(
             self, "Voice not installed",
-            f"'{voice_id}' must be downloaded (~60-120 MB, one time).\n\n"
+            f"'{voice_id}' must be downloaded{size_hint}.\n\n"
             "Open the Model Manager now?")
         if answer == QMessageBox.Yes:
             ModelManagerDialog(self).exec()

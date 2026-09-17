@@ -143,6 +143,62 @@
       }
     },
     {
+      "id": "en_US-lessac-high",
+      "name": "Lessac (High)",
+      "type": "voice",
+      "language": "en-US",
+      "gender": "female",
+      "style": "warm",
+      "version": "v1.0.0",
+      "license": "MIT",
+      "commercial_use": true,
+      "requires_attribution": false,
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/v1.0.0/en/en_US/lessac/high",
+      "size_mb_estimate": 115,
+      "checksums": {
+        "onnx": null,
+        "json": null
+      }
+    },
+    {
+      "id": "parler-bn-female",
+      "name": "Parler Bengali Female (Beta)",
+      "type": "voice",
+      "engine": "parler",
+      "language": "bn-BD",
+      "gender": "female",
+      "style": "storytelling",
+      "version": "main",
+      "license": "Apache-2.0",
+      "commercial_use": true,
+      "requires_attribution": false,
+      "source": "https://huggingface.co/ai4bharat/indic-parler-tts",
+      "size_mb_estimate": 3800,
+      "access": "gated - HF token required",
+      "checksums": {
+        "safetensors": null
+      }
+    },
+    {
+      "id": "parler-bn-male",
+      "name": "Parler Bengali Male (Beta)",
+      "type": "voice",
+      "engine": "parler",
+      "language": "bn-BD",
+      "gender": "male",
+      "style": "storytelling",
+      "version": "main",
+      "license": "Apache-2.0",
+      "commercial_use": true,
+      "requires_attribution": false,
+      "source": "https://huggingface.co/ai4bharat/indic-parler-tts",
+      "size_mb_estimate": 3800,
+      "access": "gated - HF token required",
+      "checksums": {
+        "safetensors": null
+      }
+    },
+    {
       "id": "bn_BD-google-medium",
       "name": "Bengali Multi (Medium)",
       "type": "voice",

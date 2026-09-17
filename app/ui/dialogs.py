@@ -33,14 +33,16 @@ class _DownloadThread(QThread):
     done = Signal(str)
     failed = Signal(str, str, list)
 
-    def __init__(self, voice_id: str, parent=None) -> None:
+    def __init__(self, voice_id: str, parent=None, token: str = "") -> None:
         super().__init__(parent)
         self.voice_id = voice_id
+        self.token = token
 
     def run(self) -> None:  # pragma: no cover - Qt thread entry
         try:
             install_voice(self.voice_id,
-                          lambda stage, d, t: self.progress.emit(stage, d, t))
+                          lambda stage, d, t: self.progress.emit(stage, d, t),
+                          self.token)
             self.done.emit(self.voice_id)
         except Exception as error:  # noqa: BLE001
             from app.utils.errors import report_exception
@@ -116,6 +118,23 @@ class ModelManagerDialog(QDialog):
         self.modules_browser.anchorClicked.connect(self._module_link)
         layout.addWidget(self.modules_browser)
 
+        # -- Gated downloads (Hugging Face token for Parler voices) --------
+        from app.config.settings import load_settings
+
+        token_row = QHBoxLayout()
+        token_row.addWidget(QLabel("HF token (gated voices):"))
+        self.hf_token_edit = QLineEdit()
+        self.hf_token_edit.setEchoMode(QLineEdit.Password)
+        self.hf_token_edit.setPlaceholderText("hf_... (stored locally only)")
+        self.hf_token_edit.setText(load_settings().hf_token)
+        save_token_btn = QPushButton("Save")
+        save_token_btn.setFixedWidth(60)
+        save_token_btn.setToolTip("Store the token in local settings")
+        save_token_btn.clicked.connect(self._save_hf_token)
+        token_row.addWidget(self.hf_token_edit, 1)
+        token_row.addWidget(save_token_btn)
+        layout.addLayout(token_row)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
         buttons.clicked.connect(lambda _: self.refresh())
@@ -169,20 +188,50 @@ class ModelManagerDialog(QDialog):
             remove_voice(text.split(":", 1)[1])
             self.refresh()
 
+    def _save_hf_token(self) -> None:
+        from app.config.settings import load_settings, save_settings
+
+        settings = load_settings()
+        settings.hf_token = self.hf_token_edit.text().strip()
+        save_settings(settings)
+        self.mod_status.setText("Token saved locally.")
+        self.mod_status.setStyleSheet("color: #7fbf7f;")
+
+    def _hf_token(self) -> str:
+        token = self.hf_token_edit.text().strip()
+        if token:
+            return token
+        from app.config.settings import load_settings
+
+        return load_settings().hf_token
+
     def _start_download(self, voice_id: str) -> None:
         if self._thread is not None and self._thread.isRunning():
             return
-        license_ok = QMessageBox.question(
-            self, "Confirm license",
-            f"Download {voice_id}?\n\nLicense: MIT "
-            "(rhasspy/piper-voices). Commercial use permitted. Continue?",
-        )
+        from tts.voices.catalog import get_voice
+
+        info = get_voice(voice_id)
+        if info is not None and info.engine == "parler":
+            license_ok = QMessageBox.question(
+                self, "Confirm license",
+                f"Download {voice_id}?\n\nLicense: Apache-2.0 "
+                "(ai4bharat/indic-parler-tts). Commercial use permitted.\n"
+                f"Size: ~{info.model_size_mb:.0f} MB one-time download.\n"
+                "The repo is access-gated: accept the license on Hugging "
+                "Face and paste a read token below first. Continue?",
+            )
+        else:
+            license_ok = QMessageBox.question(
+                self, "Confirm license",
+                f"Download {voice_id}?\n\nLicense: MIT "
+                "(rhasspy/piper-voices). Commercial use permitted. Continue?",
+            )
         if license_ok != QMessageBox.Yes:
             return
         self.progress.setVisible(True)
         self.progress.setValue(0)
         self.status.setText(f"Downloading {voice_id}...")
-        self._thread = _DownloadThread(voice_id, self)
+        self._thread = _DownloadThread(voice_id, self, self._hf_token())
         self._thread.progress.connect(self._on_progress)
         self._thread.done.connect(self._on_done)
         self._thread.failed.connect(self._on_failed)

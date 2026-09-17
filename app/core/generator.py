@@ -493,12 +493,15 @@ class GenerationPipeline:
                                      speaker_id=self.options.speaker_id)
 
         # WPM consistency: correct once when the chunk drifts too much.
-        # Skipped for voice characters: their pace is intentionally styled.
+        # Skipped for voice characters (their pace is intentionally styled)
+        # and for non-Piper engines (Parler takes no rate parameter; a
+        # blind re-synthesis would burn minutes for no gain).
         deviation = (
             abs(result.actual_wpm - chunk.wpm_target) / chunk.wpm_target
             if result.actual_wpm > 0 else 0.0
         )
         if (not (meditation or psychology)
+                and self.options.engine == "piper"
                 and deviation > WPM_DEVIATION_LIMIT
                 and result.actual_wpm > 0):
             corrected_scale = clamp_length_scale(

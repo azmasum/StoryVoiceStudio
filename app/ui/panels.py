@@ -331,8 +331,13 @@ class ControlsPanel(QWidget):
                 clone_enabled = True
                 clone_ref_path = str(ref)
             voice_id = module_base_voice(name)
+        from tts.voices.catalog import get_voice
+
+        _info = get_voice(voice_id)
+        _engine = _info.engine if _info else "piper"
         return GenerationSettings(
             voice_id=voice_id,
+            tts_engine=_engine,
             speaker_id=self.current_speaker_id(),
             target_wpm=int(self.wpm_spin.value()),
             preset=self.preset_combo.currentData() or DEFAULT_PRESET,

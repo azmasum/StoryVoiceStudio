@@ -45,6 +45,13 @@ _CATALOG: dict[str, dict] = {
         "name": "Ryan (High)",
         "size_mb": 118.0,
     },
+    "en_US-lessac-high": {
+        "subpath": "lessac/high",
+        "gender": "female",
+        "style": "warm",
+        "name": "Lessac (High)",
+        "size_mb": 115.0,
+    },
     "en_US-joe-medium": {
         "subpath": "joe/medium",
         "gender": "male",
@@ -87,6 +94,33 @@ _CATALOG: dict[str, dict] = {
             ("4811", 12), ("5958", 13), ("9169", 14), ("rm", 15),
         ],
     },
+    # Transformer voices (Indic Parler-TTS, Apache-2.0). One shared
+    # checkpoint serves many voices via description prompts; files are
+    # downloaded on demand into models/parler (NOT bundled - ~4 GB).
+    # The upstream repo is access-gated: users accept the license on
+    # Hugging Face and paste a read token into the Model Manager.
+    "parler-bn-female": {
+        "engine": "parler",
+        "repo": "ai4bharat/indic-parler-tts",
+        "gender": "female",
+        "style": "storytelling",
+        "name": "Parler Bengali Female (Beta)",
+        "size_mb": 3800.0,
+        "accent": "bn-BD",
+        "license": "Apache-2.0 (ai4bharat/indic-parler-tts)",
+        "sample_rate": 44100,
+    },
+    "parler-bn-male": {
+        "engine": "parler",
+        "repo": "ai4bharat/indic-parler-tts",
+        "gender": "male",
+        "style": "storytelling",
+        "name": "Parler Bengali Male (Beta)",
+        "size_mb": 3800.0,
+        "accent": "bn-BD",
+        "license": "Apache-2.0 (ai4bharat/indic-parler-tts)",
+        "sample_rate": 44100,
+    },
 }
 
 CATALOG_VOICES: list[dict] = []
@@ -102,6 +136,8 @@ for _vid, _meta in _CATALOG.items():
             "license", "MIT (rhasspy/piper-voices)"),
         "commercial_use": True,
         "model_size_mb": _meta["size_mb"],
+        "engine": _meta.get("engine", "piper"),
+        "sample_rate": int(_meta.get("sample_rate", 22050)),
     }
     if "speakers" in _meta:
         _entry["speakers"] = tuple(_meta["speakers"])
@@ -109,12 +145,24 @@ for _vid, _meta in _CATALOG.items():
 
 
 def model_urls(voice_id: str) -> tuple[str, str] | None:
-    """Return (onnx_url, json_url) for a catalog voice."""
+    """Return (onnx_url, json_url) for a catalog voice.
+
+    Returns None for non-Piper voices (their files are fetched by the
+    engine-specific installer instead).
+    """
     meta = _CATALOG.get(voice_id)
-    if not meta:
+    if not meta or meta.get("engine", "piper") != "piper":
         return None
     base = f"{meta.get('base', HF_BASE)}/{meta['subpath']}/{voice_id}"
     return f"{base}.onnx", f"{base}.onnx.json"
+
+
+def parler_repo(voice_id: str) -> str | None:
+    """Hugging Face repo for a Parler voice, or None."""
+    meta = _CATALOG.get(voice_id)
+    if not meta or meta.get("engine") != "parler":
+        return None
+    return str(meta.get("repo", "")) or None
 
 
 def get_speakers(voice_id: str) -> tuple[tuple[str, int], ...] | None:

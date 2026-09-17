@@ -6,6 +6,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (voices)
+- Lessac (High): larger English model for cleaner narration; bundled, no
+  download needed (verified natural rate 206 WPM, 22050 Hz).
+- Indic Parler-TTS engine (Beta, opt-in): Apache-2.0 transformer voices
+  with real emotion control via description prompts — Bengali Female and
+  Male storytellers in the Model Manager. Needs a one-time ~4 GB gated
+  download (HF token) plus the transformer lib pack; slow on CPU-only
+  machines (overnight renders), instant Piper voices stay the default.
+
 ### Fixed (voice quality)
 - Bengali voices were synthesized ~2x slower than natural (slurred,
   robotic): WPM calibration now uses a Bengali passage for Bengali

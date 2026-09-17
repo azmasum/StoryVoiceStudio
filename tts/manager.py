@@ -11,7 +11,7 @@ _PROVIDERS: dict[str, TTSProvider] = {}
 
 
 def available_engines() -> list[str]:
-    engines = ["piper"]
+    engines = ["piper", "parler"]
     return engines
 
 
@@ -24,6 +24,11 @@ def get_provider(engine: str) -> TTSProvider:
         from tts.providers.piper_provider import PiperProvider
 
         _PROVIDERS[key] = PiperProvider()
+        return _PROVIDERS[key]
+    if key == "parler":
+        from tts.providers.parler_provider import ParlerTTSProvider
+
+        _PROVIDERS[key] = ParlerTTSProvider()
         return _PROVIDERS[key]
     raise ValueError(f"Unknown TTS engine: {engine}. Available: {available_engines()}")
 

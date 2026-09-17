@@ -2,6 +2,7 @@
 param(
     [string]$TargetDir = "",
     [switch]$WithClone,
+    [switch]$WithParler,
     [switch]$Silent
 )
 
@@ -27,6 +28,10 @@ if (-not $TargetDir) {
         if (-not $WithClone) {
             $ans = Read-Choice "Install optional Voice Clone pack (~350 MB download)? (Y/N)" "N"
             if ($ans -match '^[Yy]') { $WithClone = $true }
+        }
+        if (-not $WithParler) {
+            $ans = Read-Choice "Install optional Parler transformer voices (~1.5 GB download)? (Y/N)" "N"
+            if ($ans -match '^[Yy]') { $WithParler = $true }
         }
     }
 }
@@ -107,6 +112,33 @@ if ($WithClone) {
             -OutFile $dest -UseBasicParsing
     }
     Write-Host "Voice Clone pack installed." -ForegroundColor Green
+}
+
+# --- Optional Parler transformer voices ----------------------------------
+if ($WithParler) {
+    Write-Host "`n--- Parler transformer voices ---" -ForegroundColor Cyan
+    $rt   = Join-Path $TargetDir "_runtime"
+    $py   = Join-Path $rt "python\python.exe"
+    $libs = Join-Path $TargetDir "clone_libs"
+
+    if (-not (Test-Path $py)) {
+        throw "Parler voices need the embedded Python from the Voice Clone pack - re-run with -WithClone first."
+    }
+
+    Write-Host "Installing torchaudio (CPU)..."
+    & $py -m pip install --no-warn-script-location --quiet `
+        --target $libs --upgrade torchaudio --index-url https://download.pytorch.org/whl/cpu
+    if ($LASTEXITCODE) { throw "torchaudio install failed" }
+
+    Write-Host "Installing transformer stack (transformers, parler-tts)... this is big, please wait."
+    & $py -m pip install --no-warn-script-location --quiet --target $libs --upgrade `
+        transformers tokenizers safetensors huggingface_hub sentencepiece parler-tts accelerate
+    if ($LASTEXITCODE) { throw "transformer stack install failed" }
+
+    Write-Host "Parler engine libraries installed." -ForegroundColor Green
+    Write-Host "The voice model itself (~4 GB) downloads on demand from the Model Manager."
+    Write-Host "It is access-gated: accept the license at huggingface.co/ai4bharat/indic-parler-tts"
+    Write-Host "and paste a read-only token into the Model Manager."
 }
 
 Write-Host ""

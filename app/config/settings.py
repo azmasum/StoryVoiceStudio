@@ -23,6 +23,9 @@ class AppSettings:
     tts_engine: str = "piper"
     voice_id: str = "en_US-lessac-medium"
     voice_lock: bool = True
+    # Hugging Face token for gated model downloads (e.g. Indic Parler-TTS).
+    # Stored locally only, never transmitted anywhere except huggingface.co.
+    hf_token: str = ""
 
     # Performance
     prefer_gpu: bool = True

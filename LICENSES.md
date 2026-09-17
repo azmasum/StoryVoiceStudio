@@ -28,6 +28,10 @@ See [MODEL_GUIDE.md](MODEL_GUIDE.md). Engine and voices are MIT licensed by
 their upstream projects. Model files are downloaded at runtime from official
 sources with checksum recording — they are **not** part of this repository.
 
+Exception: **Indic Parler-TTS** (`ai4bharat/indic-parler-tts`) is licensed
+**Apache-2.0** (commercial use permitted, see the upstream model card). It is
+downloaded on demand (~4 GB) and never bundled.
+
 ## Music & SFX
 
 **Nothing is bundled.** You import your own audio. You are responsible for

@@ -64,6 +64,17 @@ def voice_modules_dir() -> Path:
     return path
 
 
+def parler_dir() -> Path:
+    """Transformer TTS engine models (e.g. Indic Parler-TTS).
+
+    Unlike Piper voices (one ONNX per voice), a Parler checkpoint serves
+    many voices via description prompts, so it lives outside voices_dir.
+    """
+    path = models_dir() / "parler"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def voices_dir() -> Path:
     path = models_dir() / "voices"
     path.mkdir(parents=True, exist_ok=True)
