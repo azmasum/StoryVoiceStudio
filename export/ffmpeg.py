@@ -34,14 +34,15 @@ def find_ffmpeg() -> str | None:
     except Exception:  # noqa: BLE001 - optional dependency
         pass
     if getattr(sys, "frozen", False):
-        local_dir = Path(sys.executable).parent / "ffmpeg"
-        candidates.append(str(local_dir / "ffmpeg.exe"))
-        try:
-            for exe in sorted(local_dir.glob("ffmpeg*.exe")):
-                candidates.append(str(exe))
-                break
-        except Exception:  # noqa: BLE001
-            pass
+        exe_dir = Path(sys.executable).parent
+        candidates.append(str(exe_dir / "ffmpeg" / "ffmpeg.exe"))
+        for base in (exe_dir / "ffmpeg", exe_dir / "_internal" / "ffmpeg"):
+            try:
+                for exe in sorted(base.glob("ffmpeg*.exe")):
+                    candidates.append(str(exe))
+                    break
+            except Exception:  # noqa: BLE001
+                pass
     for pattern in (
         r"C:\ffmpeg\bin\ffmpeg.exe",
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
