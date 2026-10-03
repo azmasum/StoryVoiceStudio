@@ -27,25 +27,23 @@ from audio.dsp import psych as psych_mod
 from audio.mastering.chain import MasteringSettings, master_mix, master_voice
 from audio.mixer.mixdown import TrackEvent, mixdown
 from emotion.presets import StoryPreset, get_preset
-from emotion.prosody import clamp_length_scale, plan_prosody, wpm_to_length_scale
 from export.mp3 import export_mp3
 from export.wav import export_flac, export_wav
 from project.cache import ChunkCache, chunk_cache_key
 from project.database import GenerationSettings, save_project
 from script.chunker import Chunk
 from script.parser import process_script
-from tts.manager import get_provider
+from tts.manager import get_configured_provider
 
 log = logging.getLogger("render")
-
-WPM_DEVIATION_LIMIT = 0.08   # regenerate once beyond 8% drift
 
 
 @dataclass
 class GenerationOptions:
-    voice_id: str = "en_US-lessac-medium"
-    speaker_id: int | None = None
-    engine: str = "piper"
+    voice_id: str = "Charon"
+    dialogue_voice: str = "Puck"
+    gemini_model: str = "gemini-2.5-pro-preview-tts"
+    engine: str = "gemini"
     target_wpm: int = 155
     preset_key: str = "DOCUMENTARY"
     auto_emotion: bool = True
@@ -61,8 +59,6 @@ class GenerationOptions:
     sample_rate: int = 44100
     export_format: str = "wav"
     export_stems: bool = False
-    clone_enabled: bool = False
-    clone_ref_path: str = ""
     voice_character: str = "standard"   # standard|meditation|psychology
     preview_seconds: float = 0.0   # >0 builds a short preview render only
 
@@ -79,8 +75,10 @@ class GenerationOptions:
             character = "standard"
         return cls(
             voice_id=settings.voice_id,
-            speaker_id=settings.speaker_id,
-            engine=settings.tts_engine,
+            dialogue_voice=getattr(settings, "dialogue_voice", "Puck"),
+            gemini_model=getattr(settings, "gemini_model",
+                                  "gemini-2.5-pro-preview-tts"),
+            engine="gemini",
             target_wpm=settings.target_wpm,
             preset_key=settings.preset,
             auto_emotion=settings.auto_emotion,
@@ -95,8 +93,6 @@ class GenerationOptions:
             custom_lufs=settings.custom_lufs,
             export_format=settings.export_format,
             export_stems=settings.export_stems,
-            clone_enabled=bool(getattr(settings, "clone_enabled", False)),
-            clone_ref_path=str(getattr(settings, "clone_ref_path", "") or ""),
             voice_character=character,
         )
 
@@ -217,8 +213,7 @@ class GenerationPipeline:
             )
         self._state.chunk_count = len(chunks)
 
-        provider = get_provider(self.options.engine)
-        natural_rate = provider.natural_wpm(self.options.voice_id)
+        provider = get_configured_provider()
 
         done = 0
         cache_hits = 0
@@ -259,7 +254,7 @@ class GenerationPipeline:
                 message=f"Chunk {chunk.chunk_id + 1}/{len(chunks)} "
                         f"({chunk.scene_title})",
             )
-            wav_path = self._synthesize_chunk(provider, chunk, natural_rate)
+            wav_path = self._synthesize_chunk(provider, chunk)
             chunk.audio_path = str(wav_path)
             chunk.status = "done"
             duration = _wav_duration(wav_path)
@@ -351,26 +346,6 @@ class GenerationPipeline:
                 ],
             )
 
-        # Optional voice-clone tone transfer (post-master, pre-export)
-        if self.options.clone_enabled and self.options.clone_ref_path:
-            self._report(phase="master", overall_percent=95.0,
-                         message="Applying cloned voice...")
-            try:
-                from audio.clone.engine import convert_audio
-                final_audio, self.options.sample_rate = convert_audio(
-                    final_audio, self.options.sample_rate,
-                    Path(self.options.clone_ref_path))
-            except Exception as exc:  # noqa: BLE001 - surface to the user
-                raise UserFacingError(
-                    what="Voice clone failed.",
-                    why=str(exc),
-                    actions=[
-                        "Check the reference file/link and try again.",
-                        "Or untick 'Clone reference voice' to export "
-                        "without cloning.",
-                    ],
-                ) from exc
-
         # Export deliverables
         self._report(phase="export", overall_percent=98.0,
                      message="Exporting...")
@@ -430,6 +405,10 @@ class GenerationPipeline:
             stats={
                 **loud_stats,
                 "elapsed_seconds": round(time.time() - started, 1),
+                "api_chars": int(getattr(provider, "chars_synthesized", 0)),
+                "api_audio_seconds": round(
+                    getattr(provider, "audio_seconds", 0.0), 1),
+                "api_model": self.options.gemini_model,
             },
         )
         self._report(phase="done", overall_percent=100.0,
@@ -442,79 +421,40 @@ class GenerationPipeline:
 
     # -- helpers ----------------------------------------------------------------
 
-    def _synthesize_chunk(self, provider, chunk: Chunk, natural_rate: float):
-        """Synthesize one chunk through cache + WPM consistency control."""
-        base_scale = wpm_to_length_scale(natural_rate, chunk.wpm_target)
-        plan = plan_prosody(
-            emotion=chunk.emotion or "NEUTRAL",
-            effects=chunk.effects,
-            pause_before=chunk.pause_before,
-            pause_after=chunk.pause_after,
-            preset=self.preset,
-            global_intensity=self.options.emotion_intensity,
-        )
-        # Human touch: deterministic ±2% rate drift per chunk so the
-        # narration never ticks like a metronome. Seeded by text, hence
-        # stable across runs and cache-safe (it feeds the cache key).
-        micro_rate = 1.0 + (_hash01("rate:" + chunk.text) - 0.5) * 0.04
-        # Emphasized spans are carved into their own chunks by the chunker;
-        # render them slightly slower and hotter so they land with weight.
-        emphasis_boost = 1.05 if "emphasis" in chunk.effects else 1.0
-        length_scale = clamp_length_scale(
-            base_scale * plan.length_scale * micro_rate * emphasis_boost)
+    def _synthesize_chunk(self, provider, chunk: Chunk):
+        """Synthesize one chunk through cache (cloud API: every miss bills)."""
+        from emotion.gemini_style import is_dialogue_chunk, style_for_chunk
 
-        meditation = self.options.meditation_preset
-        psychology = self.options.voice_character == "psychology"
-        if meditation:
-            length_scale = clamp_length_scale(
-                length_scale * meditation_mod.LENGTH_SCALE_MULTIPLIER)
-        elif psychology:
-            length_scale = clamp_length_scale(
-                length_scale * psych_mod.LENGTH_SCALE_MULTIPLIER)
+        from script.parser import clean_for_tts
 
-        key = chunk_cache_key(
-            chunk.text, self.options.voice_id, self.options.engine,
-            length_scale, chunk.wpm_target, chunk.emotion,
-            speaker_id=self.options.speaker_id,
-            character=self.options.voice_character,
-            effects=tuple(sorted(chunk.effects)),
-        )
+        # Narrator vs character voice: dialogue-heavy chunks speak with the
+        # dialogue voice so characters stay distinct from narration.
+        dialogue = is_dialogue_chunk(chunk.text)
+        voice = self.options.dialogue_voice if dialogue else self.options.voice_id
+        style = style_for_chunk(
+            chunk.emotion or "NEUTRAL", self.options.preset_key,
+            self.options.emotion_intensity)
+
+        # Gemini controls pace through style words, not a rate parameter,
+        # so the cache key carries style + model instead of a scale.
+        key = chunk_key_for(chunk, self.options)
         cached = self.cache.get(key)
         if cached is not None:
             log.debug("Cache hit for chunk %d", chunk.chunk_id)
             return cached
 
-        from script.parser import clean_for_tts
-
         tts_text = clean_for_tts(chunk.text)
         tmp = self.cache.path_for(key).with_suffix(".tmp.wav")
-        result = provider.synthesize(tts_text, tmp, self.options.voice_id,
-                                     length_scale=length_scale,
-                                     speaker_id=self.options.speaker_id)
-
-        # WPM consistency: correct once when the chunk drifts too much.
-        # Skipped for voice characters (their pace is intentionally styled)
-        # and for non-Piper engines (Parler takes no rate parameter; a
-        # blind re-synthesis would burn minutes for no gain).
-        deviation = (
-            abs(result.actual_wpm - chunk.wpm_target) / chunk.wpm_target
-            if result.actual_wpm > 0 else 0.0
-        )
-        if (not (meditation or psychology)
-                and self.options.engine == "piper"
-                and deviation > WPM_DEVIATION_LIMIT
-                and result.actual_wpm > 0):
-            corrected_scale = clamp_length_scale(
-                length_scale * result.actual_wpm / chunk.wpm_target)
-            retry = provider.synthesize(tts_text, tmp, self.options.voice_id,
-                                        length_scale=corrected_scale,
-                                        speaker_id=self.options.speaker_id)
-            retry_deviation = (
-                abs(retry.actual_wpm - chunk.wpm_target) / chunk.wpm_target
-                if retry.actual_wpm > 0 else deviation
-            )
-            if retry_deviation < deviation:
-                result = retry
+        meditation = self.options.meditation_preset
+        psychology = self.options.voice_character == "psychology"
+        if hasattr(provider, "synthesize_with_style"):
+            result = provider.synthesize_with_style(
+                tts_text, tmp, voice, chunk.emotion or "NEUTRAL",
+                self.options.preset_key, self.options.emotion_intensity)
+        else:  # duck-typed providers (tests)
+            result = provider.synthesize(tts_text, tmp, voice,
+                                         length_scale=1.0)
+        _ = result
 
         _trim_chunk_tail(tmp)
         if meditation:
@@ -601,17 +541,28 @@ _SENTENCE_ENDINGS = tuple("।!?.；")
 EMPHASIS_GAIN_DB = 1.5
 
 
-def _hash01(key: str) -> float:
-    """Deterministic pseudo-random 0..1 (stable renders, cache-safe)."""
-    import hashlib
-
-    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
-    return int(digest, 16) / 0xFFFFFFFF
-
-
 def _chunk_gain(chunk: Chunk) -> float:
     """Emphasized spans sit slightly hotter in the mix."""
     return EMPHASIS_GAIN_DB if "emphasis" in chunk.effects else 0.0
+
+
+def chunk_key_for(chunk: Chunk, options: GenerationOptions) -> str:
+    """Cache key for a chunk (shared by the pipeline and the UI)."""
+    from emotion.gemini_style import is_dialogue_chunk, style_for_chunk
+
+    dialogue = is_dialogue_chunk(chunk.text)
+    voice = options.dialogue_voice if dialogue else options.voice_id
+    style = style_for_chunk(
+        chunk.emotion or "NEUTRAL", options.preset_key,
+        options.emotion_intensity)
+    return chunk_cache_key(
+        chunk.text, voice, options.engine,
+        1.0, chunk.wpm_target, chunk.emotion,
+        character=options.voice_character,
+        effects=tuple(sorted(chunk.effects)),
+        style=style,
+        model=options.gemini_model,
+    )
 
 
 def _ends_sentence(text: str) -> bool:

@@ -1,29 +1,27 @@
 # StoryVoice Studio
 
-**Professional AI Storytelling Audio — Local, Private & Free**
+**Professional AI Storytelling Audio — Powered by Gemini**
 
-A free, offline-first AI storytelling audio production studio for Windows.
-Paste a story, pick a US-English voice, and generate long-form narration
-with automatic emotion, background-music ducking and professional mastering —
-all **locally**, with no API keys, subscriptions or cloud services.
+A free storytelling audio production studio for Windows. Paste a story,
+pick one of 30 Gemini studio voices, and generate expressive long-form
+narration with automatic emotion, background-music ducking and
+professional mastering — via the Google Gemini API (your own API key,
+billed by Google).
 
-![status](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![license](https://img.shields.io/badge/code_license-MIT-green) ![tts](https://img.shields.io/badge/TTS-Piper%20(local)-orange)
+![status](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![license](https://img.shields.io/badge/code_license-MIT-green) ![tts](https://img.shields.io/badge/TTS-Gemini%202.5%20(cloud)-blue)
 
 ---
 
 ## ✨ Features
 
-- 🔊 **Real local neural TTS** — Piper engine runs ONNX voices on CPU; no GPU required
+- 🔊 **Gemini neural voices** — 30 studio voices (narrator + dialogue voice), style/emotion control in 70+ languages incl. Bengali
 - 📚 **Long-form ready** — smart scene/paragraph/sentence chunking for 10–120+ minute stories
-- ⏯️ **Crash-safe resume** — every chunk is cached; interrupted generations continue where they stopped
-- 🎭 **Emotion engine** — rule-based detection (`whispered`, `screamed`, punctuation cues) plus inline markup like `[EMOTION:FEAR]`, `[PAUSE:2]`, `[WHISPER]`
+- ⏯️ **Crash-safe resume** — every chunk is cached; interrupted generations continue where they stopped (no double billing)
+- 🎭 **Emotion engine** — rule-based detection (`whispered`, `screamed`, punctuation cues, Bengali cues too) plus inline markup like `[EMOTION:FEAR]`, `[PAUSE:2]`, `[WHISPER]`, `[EMPHASIS]...[/EMPHASIS]`
 - 🗣️ **12 storytelling presets** — Documentary, Horror, Mystery, True Crime, Emotional, Motivational, Romance, Sci-Fi, Historical, Bedtime, Dark Story, Cinematic
 - 🎵 **Music + mandatory ducking** — sidechain-style envelope ducking (0–18 dB, configurable attack/release)
 - 🎚️ **Professional mastering** — HPF → EQ → de-esser → compression → saturation → limiter → LUFS normalization (YouTube / Podcast / Audiobook / Cinematic targets)
-- 🌡️ **WPM control** — target 120–180 WPM with per-chunk consistency correction and voice-lock
-- 🇺🇸 **US-English normalization** — numbers, years, dates, currency, percentages, measurements spoken naturally
-- 📖 **Pronunciation dictionary** — ship your own `pronunciations.json` overrides
-- 🧰 **Model manager** — install only what you need; licenses shown before download; SHA256 recorded & verified
+- 💳 **Usage tracking** — characters + audio minutes per generation (billed by Google per AI Studio pricing)
 - 💾 **`.storyproj` projects** — autosave, crash recovery, portable asset references
 - 🖥️ **GUI + CLI** — dark PySide6 app (Simple & Advanced modes) and `storyvoice generate|batch` commands
 
@@ -58,10 +56,10 @@ python -m app.main
 
 ## 🚀 Quick Start
 
-1. Launch the app → the first-run wizard detects your hardware and offers a starter voice (~20–63 MB, one-time download).
+1. Get a free API key at [AI Studio](https://aistudio.google.com/apikey) and paste it into the Voice panel's **API key** field (stored on your PC only).
 2. Paste or import your story (TXT/MD). Use markers if you like:
-   - `[SCENE: Night Street]`, `[PAUSE:2]`, `[EMOTION:FEAR]`, `[WHISPER]`
-3. Pick a preset (e.g. *Horror*), voice, WPM (default 155).
+   - `[SCENE: Night Street]`, `[PAUSE:2]`, `[EMOTION:FEAR]`, `[WHISPER]`, `[EMPHASIS]...[/EMPHASIS]`
+3. Pick a preset (e.g. *Horror*), narrator + dialogue voices.
 4. Optional: enable background music and set ducking depth.
 5. Press **30s Preview** to check quality, then **GENERATE AUDIO**.
 6. Export WAV/FLAC natively; MP3 requires FFmpeg on PATH (see TROUBLESHOOTING).
@@ -69,9 +67,9 @@ python -m app.main
 ### CLI
 
 ```bat
-storyvoice generate story.txt --voice en_US-danny-low --wpm 150 --emotion auto --preset HORROR --format wav
+set GEMINI_API_KEY=your-key
+storyvoice generate story.txt --voice Charon --dialogue-voice Puck --preset HORROR --format wav
 storyvoice batch .\scripts\
-storyvoice download-model en_US-lessac-medium
 storyvoice voices
 ```
 
@@ -81,25 +79,18 @@ storyvoice voices
 |------|---------|-------------|
 | CPU  | 2 cores | 4+ cores |
 | RAM  | 4 GB    | 8–16 GB     |
-| Disk | 500 MB free + voice size (~20–120 MB per voice) | SSD |
-| GPU  | None (CPU mode default) | Any CUDA GPU for future engines |
+| Disk | 300 MB free | SSD |
+| GPU  | None needed | — |
+| Net  | Internet for Gemini API calls | — |
 
-## 🗣️ Supported Voices (US English)
+## 🗣️ Voices (Gemini, 30 studio voices)
 
-All bundled voices come from the official [rhasspy/piper-voices](https://github.com/rhasspy/piper-voices) repository (**MIT license — commercial use permitted**):
+Nothing to download — pick any voice and generate. Narrator defaults to
+**Charon** (documentary), dialogue to **Puck** (contrasting timbre).
+Language is auto-detected (70+ languages incl. Bengali bn-BD, English).
+Browse + audition all 30 in **Voices → Browse Voices**.
 
-| Voice | Gender | Style | Size |
-|-------|--------|-------|------|
-| Lessac (Medium) | Female | Warm | ~63 MB |
-| Amy (Medium) | Female | Calm | ~63 MB |
-| HFC Female (Medium) | Female | Documentary | ~63 MB |
-| Ryan (High) | Male | Cinematic | ~118 MB |
-| Joe (Medium) | Male | Deep | ~63 MB |
-| Kusal (Medium) | Male | Serious | ~63 MB |
-| Danny (Low) | Male | Mystery | ~20 MB |
-
-See MODEL_GUIDE.md for details. The TTS provider system is pluggable — new
-engines can be added without touching the rest of the app.
+See MODEL_GUIDE.md for details.
 
 ## ⚠️ Commercial Use Notice
 
@@ -112,9 +103,10 @@ music or SFX; you import your own legally licensed audio.
 
 ## 🔐 Privacy
 
-Your scripts and generated audio remain on your computer unless you
-explicitly use an external service. No analytics, no hidden telemetry, no
-cloud dependency. See PRIVACY.md.
+Your API key stays in local settings and is sent only to Google's API.
+Scripts and generated audio remain on your computer. No analytics, no
+hidden telemetry. Generated audio carries a SynthID watermark applied by
+Google. See PRIVACY.md.
 
 ## 🛠️ Build from Source
 
@@ -128,14 +120,18 @@ GitHub Actions builds Windows artifacts automatically:
 ## ❓ FAQ
 
 **Does it need internet?**
-Only to download voice models the first time. Generation is 100% offline.
+Yes — narration calls the Google Gemini API. Mixing, mastering and export
+run locally.
 
 **Is there an API key or subscription?**
-No. Everything runs locally and free.
+You bring your own Gemini API key (free from AI Studio); usage is billed
+by Google per AI Studio pricing — a typical 10-minute story costs a few
+cents.
 
 **Can I use it for monetized YouTube?**
-The included Piper voices are MIT licensed (commercial use allowed), but you
-are responsible for the licensing of any music/SFX you add.
+The Gemini API paid tier permits commercial use (verify current terms in
+your console), but you are responsible for the licensing of any
+music/SFX you add. Generated audio carries a SynthID watermark.
 
 **Why does MP3 export fail?**
 MP3 encoding uses FFmpeg, which isn't shipped due to licensing. Install FFmpeg

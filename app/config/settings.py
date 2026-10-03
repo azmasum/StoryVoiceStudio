@@ -19,13 +19,16 @@ class AppSettings:
     autosave_seconds: int = 60
     default_project_dir: str = ""
 
-    # TTS / models
-    tts_engine: str = "piper"
-    voice_id: str = "en_US-lessac-medium"
+    # TTS / models (Gemini cloud voices - nothing is downloaded)
+    tts_engine: str = "gemini"
+    voice_id: str = "Charon"
     voice_lock: bool = True
-    # Hugging Face token for gated model downloads (e.g. Indic Parler-TTS).
-    # Stored locally only, never transmitted anywhere except huggingface.co.
-    hf_token: str = ""
+    # Gemini API key from https://aistudio.google.com/apikey.
+    # Stored in the local settings file only, never logged or transmitted
+    # anywhere except generativelanguage.googleapis.com.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-pro-preview-tts"
+    dialogue_voice: str = "Puck"
 
     # Performance
     prefer_gpu: bool = True

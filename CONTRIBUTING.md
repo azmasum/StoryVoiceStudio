@@ -33,7 +33,7 @@ for big changes (e.g., new TTS engine integrations).
 
 ## Adding AI models
 
-Only via `models/registry.json` + official download URLs + verifiable
+Only via `models/registry.json` + official API/source URLs + verifiable
 license metadata. See MODEL_GUIDE.md for policy.
 
 ## Code of Conduct

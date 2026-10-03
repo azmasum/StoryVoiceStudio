@@ -11,7 +11,7 @@ USER → StoryVoice Studio (PySide6)
          ↓
    emotion/                     # analyzer, presets, prosody planning
          ↓
-   tts/                         # provider abstraction + Piper provider
+    tts/                         # provider abstraction + Gemini provider
          ↓
    audio/                       # DSP, mixing, mastering, analysis
          ↓

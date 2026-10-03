@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "storyvoice-studio"
-version = "0.1.0"
-description = "Free, offline-first AI storytelling audio production studio for Windows with local TTS, emotional narration, background music, SFX and professional audio mastering."
+version = "0.2.0"
+description = "AI storytelling audio production studio for Windows with Gemini neural voices, emotional narration, background music and professional audio mastering."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "StoryVoice Studio Contributors" }]
-keywords = ["tts", "storytelling", "audio", "narration", "offline"]
+keywords = ["tts", "storytelling", "audio", "narration", "gemini"]
 
 [project.scripts]
 storyvoice = "cli.main:main"
@@ -19,7 +19,7 @@ storyvoice = "cli.main:main"
 packages = [
     "app", "app.config", "app.core", "app.ui", "app.workers", "app.utils",
     "audio", "audio.dsp", "audio.mixer", "audio.mastering", "audio.waveform", "audio.analysis",
-    "tts", "tts.providers",
+    "tts", "tts.providers", "tts.voices",
     "emotion",
     "script",
     "music",

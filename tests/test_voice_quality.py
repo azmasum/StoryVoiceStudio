@@ -23,14 +23,36 @@ def test_length_scale_never_stretches_into_artifacts():
     assert clamp_length_scale(1.0) == 1.0
 
 
-def test_bengali_voice_calibrates_with_bengali_text():
-    from tts.providers.piper_provider import _calibration_text
+def test_gemini_natural_wpm_caches_and_clamps(monkeypatch, tmp_path):
+    from tts.providers.gemini_provider import GeminiTTSProvider
 
-    bn = _calibration_text("bn_BD-google-medium")
-    assert DANDA in bn  # Bengali passage, not the English one
-    en = _calibration_text("en_US-lessac-medium")
-    assert DANDA not in en
-    assert "house" in en
+    provider = GeminiTTSProvider("k")
+    calls = {"n": 0}
+
+    def fake_synth(text, out_path, voice_id, emotion="NEUTRAL",
+                   preset_key="DOCUMENTARY", intensity=0.7):
+        from tts.base import SynthesisResult
+
+        calls["n"] += 1
+        import soundfile as sf
+
+        sr = 24000
+        dur = 4.0
+        t = np.linspace(0, dur, int(dur * sr), endpoint=False)
+        sf.write(str(out_path),
+                 (0.2 * np.sin(2 * np.pi * 200 * t)).astype(np.float32), sr)
+        words = len(text.split())
+        return SynthesisResult(audio_path=out_path, duration_seconds=dur,
+                               sample_rate=sr, word_count=words,
+                               actual_wpm=round(words / dur * 60.0, 2),
+                               length_scale_used=1.0)
+
+    monkeypatch.setattr(provider, "synthesize_with_style", fake_synth)
+    # Calibration text ~38 words in 4s -> ~570 WPM -> clamped to 300.
+    first = provider.natural_wpm("Charon")
+    second = provider.natural_wpm("Charon")
+    assert first == 300.0
+    assert calls["n"] == 1  # second call served from cache
 
 
 def test_bengali_paragraph_splits_into_sentences():
@@ -127,14 +149,14 @@ def test_breath_pause_floor_is_deterministic():
 def test_cache_key_covers_effects():
     from project.cache import chunk_cache_key
 
-    base = dict(text="Hello world", voice_id="v", engine="piper",
+    base = dict(text="Hello world", voice_id="v", engine="gemini",
                 length_scale=1.0, wpm_target=155, emotion="NEUTRAL")
     assert chunk_cache_key(**base) != chunk_cache_key(
         **{**base, "effects": ("emphasis",)})
     assert chunk_cache_key(**base) == chunk_cache_key(**base)
 
 
-def test_chunk_rate_humanization_stays_within_two_percent(tmp_path):
+def test_chunk_synth_is_deterministic_and_cached(tmp_path):
     import soundfile as sf
 
     from app.core.generator import GenerationOptions, GenerationPipeline
@@ -142,11 +164,13 @@ def test_chunk_rate_humanization_stays_within_two_percent(tmp_path):
     from tts.base import SynthesisResult
 
     class _StubTTS:
-        def synthesize(self, text, out_path, voice_id, length_scale=1.0,
-                       speaker_id=None):
-            sr = 22050
-            wpm = 150.0 / length_scale
-            dur = max(0.2, len(text.split()) / wpm * 60.0)
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def synthesize(self, text, out_path, voice_id, length_scale=1.0):
+            self.calls += 1
+            sr = 24000
+            dur = max(0.2, len(text.split()) / 150.0 * 60.0)
             t = np.linspace(0, dur, int(dur * sr), endpoint=False)
             sf.write(str(out_path),
                      (0.3 * np.sin(2 * np.pi * 300 * t)).astype(np.float32),
@@ -157,17 +181,19 @@ def test_chunk_rate_humanization_stays_within_two_percent(tmp_path):
                 word_count=words, actual_wpm=round(words / dur * 60.0, 2),
                 length_scale_used=length_scale)
 
-    options = GenerationOptions(voice_id="v", auto_emotion=False)
-    pipeline = GenerationPipeline("HumanTest", tmp_path, options)
+    options = GenerationOptions(voice_id="Charon", auto_emotion=False)
+    pipeline = GenerationPipeline("CacheTest", tmp_path, options)
+    stub = _StubTTS()
     chunk = Chunk(chunk_id=0, scene_id=1, scene_title="S", index_in_scene=0,
                   text="The quick brown fox jumps over the lazy dog",
                   wpm_target=155)
-    first = pipeline._synthesize_chunk(_StubTTS(), chunk, 150.0)
-    second = pipeline._synthesize_chunk(_StubTTS(), chunk, 150.0)
-    assert first == second  # served from cache: deterministic
+    first = pipeline._synthesize_chunk(stub, chunk)
+    second = pipeline._synthesize_chunk(stub, chunk)
+    assert first == second  # second served from cache: deterministic
+    assert stub.calls == 1  # cloud API must not be billed twice
     import wave
 
     with wave.open(str(first), "rb") as wf:
         dur = wf.getnframes() / wf.getframerate()
-    # 9 words at 155 WPM ~= 3.48s; ±2% humanization keeps it in a tight band.
-    assert 3.35 < dur < 3.62
+    # 9 words at ~150 WPM ~= 3.6s.
+    assert 3.4 < dur < 3.8

@@ -20,7 +20,7 @@ class VoiceInfo:
     license: str
     commercial_use: bool
     model_size_mb: float
-    engine: str = "piper"  # piper | parler — which provider synthesizes it
+    engine: str = "gemini"  # which provider synthesizes it
     sample_rate: int = 22050
     language: str = "en-US"          # display label, e.g. "bn-BD (Bengali)"
     speakers: tuple[tuple[str, int], ...] | None = None  # (name, speaker_id)

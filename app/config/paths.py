@@ -44,37 +44,6 @@ def models_dir() -> Path:
     return path
 
 
-def clone_models_dir() -> Path:
-    """Checkpoints for the optional OpenVoice tone-cloning pack."""
-    path = models_dir() / "openvoice"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def references_dir() -> Path:
-    """Downloaded/uploaded voice-clone reference clips."""
-    path = data_dir() / "references"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def voice_modules_dir() -> Path:
-    path = data_dir() / "voice_modules"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def parler_dir() -> Path:
-    """Transformer TTS engine models (e.g. Indic Parler-TTS).
-
-    Unlike Piper voices (one ONNX per voice), a Parler checkpoint serves
-    many voices via description prompts, so it lives outside voices_dir.
-    """
-    path = models_dir() / "parler"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def voices_dir() -> Path:
     path = models_dir() / "voices"
     path.mkdir(parents=True, exist_ok=True)

@@ -8,51 +8,69 @@ fabricated. Always re-verify at the source before commercial use.
 
 | Property | Value |
 |----------|-------|
-| Engine | [Piper](https://github.com/rhasspy/piper) (`piper-tts` Python package) |
-| License | MIT |
-| Commercial use | ✅ Yes (per upstream project) |
-| Runs locally | ✅ ONNX on CPU; CUDA used automatically if available |
+| Engine | Google Gemini API (`gemini-2.5-pro-preview-tts`, alt `gemini-2.5-flash-preview-tts`) |
+| License | Gemini API Terms of Service (paid API) |
+| Commercial use | ✅ Yes on the paid tier (verify current terms in your console) |
+| Runs locally | ❌ Cloud API — needs internet + your own API key |
+| Audio format | 24 kHz 16-bit PCM mono, SynthID-watermarked by Google |
 
-## Voices (US English)
+Docs: <https://ai.google.dev/gemini-api/docs/speech-generation>
+Keys: <https://aistudio.google.com/apikey>
 
-Source repository: [rhasspy/piper-voices](https://github.com/rhasspy/piper-voices)
-— the repository is licensed **MIT**.
+## Voices (30 prebuilt studio voices)
 
-| Voice ID | Gender | Style | Download size | License |
-|----------|--------|-------|---------------|---------|
-| en_US-lessac-medium | Female | Warm | ~63 MB | MIT |
-| en_US-amy-medium | Female | Calm | ~63 MB | MIT |
-| en_US-hfc_female-medium | Female | Documentary | ~63 MB | MIT |
-| en_US-ryan-high | Male | Cinematic | ~118 MB | MIT |
-| en_US-joe-medium | Male | Deep | ~63 MB | MIT |
-| en_US-kusal-medium | Male | Serious | ~63 MB | MIT |
-| en_US-danny-low | Male | Mystery | ~20 MB | MIT |
+Nothing is downloaded — every voice works on every model and in 70+
+languages (auto-detected, incl. Bengali bn-BD). Steering is done with
+natural-language style directions plus per-emotion delivery.
 
-Download URLs point to `huggingface.co/rhasspy/piper-voices` (official mirror
-of the same repository). The Model Manager shows each model's source URL and
-license **before** download, records SHA256 checksums at install time, and
-re-verifies them on launch.
+| Voice | Gender | Character |
+|-------|--------|-----------|
+| Zephyr | Female | Bright |
+| Kore | Female | Firm |
+| Leda | Female | Youthful |
+| Aoede | Female | Breezy |
+| Callirrhoe | Female | Easy-going |
+| Autonoe | Female | Bright |
+| Erinome | Female | Clear |
+| Despina | Female | Smooth |
+| Laomedeia | Female | Upbeat |
+| Achernar | Female | Soft |
+| Vindemiatrix | Female | Gentle |
+| Sulafat | Female | Warm |
+| Gacrux | Female | Versatile |
+| Pulcherrima | Female | Versatile |
+| Puck | Male | Upbeat |
+| Charon | Male | Informative |
+| Fenrir | Male | Excitable |
+| Orus | Male | Firm |
+| Enceladus | Male | Breathy |
+| Iapetus | Male | Clear |
+| Umbriel | Male | Easy-going |
+| Algieba | Male | Smooth |
+| Algenib | Male | Gravelly |
+| Rasalgethi | Male | Informative |
+| Alnilam | Male | Firm |
+| Schedar | Male | Even |
+| Achird | Male | Friendly |
+| Zubenelgenubi | Male | Casual |
+| Sadachbia | Male | Lively |
+| Sadaltager | Male | Knowledgeable |
 
-> Note: individual voice training datasets may carry their own terms. Piper's
-> authors release the voices under MIT; verify suitability for your specific
-> commercial use case at the source link above when in doubt.
+Defaults: narrator **Charon** (documentary), dialogue **Puck** (contrast).
+Audition any voice from **Voices → Browse Voices** (plays a live sample).
 
 ## COMMERCIAL-SAFE vs RESEARCH ONLY
 
 | Category | Items in this repo |
 |----------|--------------------|
-| ✅ COMMERCIAL-SAFE (per current upstream licenses) | piper-tts engine, all cataloged piper-voices models |
+| ✅ COMMERCIAL-SAFE (per current upstream terms) | Gemini API paid-tier narration |
 | ⚠️ NON-COMMERCIAL / verify first | Any music or SFX files you import yourself |
 
 The app never silently recommends research-only models for monetized content.
-Future engines that are non-commercial will be labeled clearly in the Model
-Manager and blocked from "commercial" presets with a warning.
 
-## Voice cloning (future, opt-in)
+## Billing
 
-The provider interface exposes `supports_voice_cloning()` so cloning engines
-can plug in later. Policy:
-
-1. Only clone voices you own or have explicit written permission to clone.
-2. Display the target model's license before enabling.
-3. No unauthorized impersonation — this is a hard product rule.
+Usage is billed by Google per AI Studio pricing (text in + audio out).
+Every generation reports its characters + audio minutes; a typical
+10-minute story costs a few cents. Re-renders reuse cached chunks, so
+unchanged sentences are never billed twice.

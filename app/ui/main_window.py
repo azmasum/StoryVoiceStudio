@@ -129,11 +129,11 @@ class MainWindow(QMainWindow):
         for action in (generate_action, preview_action, cancel_action):
             project_menu.addAction(action)
 
-        models_menu = self.menuBar().addMenu("&Models")
-        manager_action = QAction("Model &Manager...", self)
+        voices_menu = self.menuBar().addMenu("&Voices")
+        manager_action = QAction("&Browse Voices...", self)
         manager_action.triggered.connect(
             lambda: ModelManagerDialog(self).exec())
-        models_menu.addAction(manager_action)
+        voices_menu.addAction(manager_action)
 
         settings_menu = self.menuBar().addMenu("&Settings")
         self.simple_action = QAction("&Simple Mode", self, checkable=True)
@@ -480,36 +480,26 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def start_generation(self) -> None:
-        missing = self._ensure_voice_installed()
-        if missing:
+        if self._ensure_api_key():
             return
         self._start_worker(preview_seconds=0.0)
 
     def start_preview(self) -> None:
-        missing = self._ensure_voice_installed()
-        if missing:
+        if self._ensure_api_key():
             return
         self._start_worker(preview_seconds=30.0)
 
-    def _ensure_voice_installed(self) -> bool:
-        voice_id = self.controls.current_voice_id()
-        # For cloned voice modules, check the base Piper voice instead
-        if voice_id.startswith("module:"):
-            from models.voice_modules import module_base_voice
-            voice_id = module_base_voice(voice_id.split(":", 1)[1])
-        from models.downloader import is_voice_installed
+    def _ensure_api_key(self) -> bool:
+        """Returns True when generation must stop (no API key)."""
+        from app.config.settings import load_settings
 
-        if is_voice_installed(voice_id):
+        if load_settings().gemini_api_key.strip():
             return False
-        from tts.voices.catalog import get_voice
-
-        info = get_voice(voice_id)
-        size_hint = (f" (~{info.model_size_mb:.0f} MB, one time)"
-                     if info else " (~60-120 MB, one time)")
         answer = QMessageBox.question(
-            self, "Voice not installed",
-            f"'{voice_id}' must be downloaded{size_hint}.\n\n"
-            "Open the Model Manager now?")
+            self, "API key required",
+            "Narration uses the Google Gemini API (billed by Google).\n\n"
+            "Paste a key from aistudio.google.com/apikey into the "
+            "Voice panel now?")
         if answer == QMessageBox.Yes:
             ModelManagerDialog(self).exec()
         return True
@@ -553,6 +543,13 @@ class MainWindow(QMainWindow):
             f"chunks Â· {outcome.duration_seconds:.1f}s Â· "
             f"{outcome.lufs} LUFS Â· TP {outcome.true_peak} dBTP"
         )
+        api_chars = outcome.stats.get("api_chars", 0)
+        api_seconds = outcome.stats.get("api_audio_seconds", 0.0)
+        if api_chars:
+            summary += (f"\nAPI usage: {api_chars:,} chars, "
+                        f"{api_seconds / 60.0:.1f} min audio "
+                        f"({outcome.stats.get('api_model', '')})")
+            self.controls.set_usage(api_chars, api_seconds)
         if preview_only:
             summary = "PREVIEW ready - full render not performed."
         self.status_label.setText(summary)
@@ -580,19 +577,10 @@ class MainWindow(QMainWindow):
             )
             cache_dir = self._project_dir() / "cache"
             by_key = {}
+            from app.core.generator import chunk_key_for
+            options = GenerationOptions.from_settings(self.project.settings)
             for chunk in processed.chunks:
-                from project.cache import chunk_cache_key
-                from emotion.prosody import plan_prosody, wpm_to_length_scale
-                plan = plan_prosody(chunk.emotion or "NEUTRAL", chunk.effects,
-                                    chunk.pause_before, chunk.pause_after,
-                                    global_intensity=
-                                    self.project.settings.emotion_intensity)
-                key = chunk_cache_key(
-                    chunk.text, self.project.settings.voice_id, "piper",
-                    round(wpm_to_length_scale(160.0, chunk.wpm_target)
-                          * plan.length_scale, 5),
-                    chunk.wpm_target, chunk.emotion)
-                by_key[key] = chunk
+                by_key[chunk_key_for(chunk, options)] = chunk
             matched = 0
             for wav in cache_dir.glob("*.wav"):
                 key = wav.stem

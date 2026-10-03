@@ -1,9 +1,9 @@
-"""Prosody planning: convert emotion/preset into concrete TTS parameters.
+"""Prosody planning: convert emotion/preset into concrete pacing parameters.
 
 The planner produces engine-neutral parameters (rate scale, pause seconds,
-intensity). Piper consumes the rate scale as ``length_scale``; other engines
-map these values onto their own controls. Pitch/energy hints are reserved
-for engines that support them - never faked on engines that do not.
+intensity). Pace is expressed as a Piper-style ``length_scale`` for
+historical reasons (1.0 = natural); engines without a rate control
+consult the emotion profile's rate only as a pace hint.
 """
 from __future__ import annotations
 

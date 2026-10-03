@@ -1,21 +1,17 @@
-"""Dialogs: Model Manager, Settings, About, First-Run Wizard, Update."""
+"""Dialogs: Voices browser, Settings, About, First-Run Wizard, Update."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QUrl
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QTextBrowser,
     QVBoxLayout,
@@ -24,26 +20,35 @@ from PySide6.QtWidgets import (
 from app.config.settings import AppSettings
 from app.utils.hardware import HardwareInfo, detect_hardware
 from app.version import APP_NAME, APP_TAGLINE, COMMERCIAL_WARNING, PRIVACY_NOTICE, VERSION
-from models.downloader import install_voice
-from models.manager import list_models
 
 
-class _DownloadThread(QThread):
-    progress = Signal(str, int, int)
+class _SampleThread(QThread):
     done = Signal(str)
     failed = Signal(str, str, list)
 
-    def __init__(self, voice_id: str, parent=None, token: str = "") -> None:
+    def __init__(self, voice: str, model: str, parent=None) -> None:
         super().__init__(parent)
-        self.voice_id = voice_id
-        self.token = token
+        self.voice = voice
+        self.model = model
 
     def run(self) -> None:  # pragma: no cover - Qt thread entry
         try:
-            install_voice(self.voice_id,
-                          lambda stage, d, t: self.progress.emit(stage, d, t),
-                          self.token)
-            self.done.emit(self.voice_id)
+            import tempfile
+
+            from tts.manager import get_configured_provider
+
+            provider = get_configured_provider()
+            if hasattr(provider, "configure"):
+                from app.config.settings import load_settings
+
+                settings = load_settings()
+                provider.configure(settings.gemini_api_key,
+                                   self.model or settings.gemini_model)
+            out = Path(tempfile.gettempdir()) / f"svs-sample-{self.voice}.wav"
+            provider.synthesize_with_style(
+                "Hello! This is a short voice sample for your story.",
+                out, self.voice, "NEUTRAL", "DOCUMENTARY", 0.7)
+            self.done.emit(str(out))
         except Exception as error:  # noqa: BLE001
             from app.utils.errors import report_exception
 
@@ -52,285 +57,120 @@ class _DownloadThread(QThread):
 
 
 class ModelManagerDialog(QDialog):
-    """Install/remove AI voice models; shows licenses before download."""
+    """Browse the 30 Gemini voices, manage the API key, audition voices."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Model Manager")
-        self.resize(720, 620)
-        self._thread: _DownloadThread | None = None
+        self.setWindowTitle("Voices")
+        self.resize(720, 560)
+        self._thread: _SampleThread | None = None
+        self._player = None
 
-        layout = QVBoxLayout(self)
-        self.table_label = QLabel()
-        layout.addWidget(self._build_table())
-
-        self.progress = QProgressBar()
-        self.progress.setVisible(False)
-        self.status = QLabel(
-            "Downloads come only from official sources shown above. "
-            "SHA256 checksums are computed and verified on install."
-        )
-        self.status.setWordWrap(True)
-        layout.addWidget(self.progress)
-        layout.addWidget(self.status)
-
-        # -- Voice Modules (cloned voice presets) --------------------------
-        sep = QLabel("<b>Voice Modules</b> (saved cloned voices)")
-        sep.setWordWrap(True)
-        layout.addWidget(sep)
-
-        mod_row = QHBoxLayout()
-        self.mod_ref_edit = QLineEdit()
-        self.mod_ref_edit.setPlaceholderText("Reference .wav / .mp3 (file or URL)")
-        browse_btn = QPushButton("Browse...")
-        browse_btn.setFixedWidth(80)
-        browse_btn.clicked.connect(self._browse_module_ref)
-        mod_row.addWidget(self.mod_ref_edit, 1)
-        mod_row.addWidget(browse_btn)
-        layout.addLayout(mod_row)
-
-        save_row = QHBoxLayout()
-        self.mod_name_edit = QLineEdit()
-        self.mod_name_edit.setPlaceholderText("Module name (e.g. My Voice)")
-        self.mod_base_voice = QComboBox()
-        from tts.voices.catalog import CATALOG_VOICES
-        for entry in CATALOG_VOICES:
-            self.mod_base_voice.addItem(entry["name"], entry["voice_id"])
-        self.mod_tau_combo = QComboBox()
-        self.mod_tau_combo.addItems(["0.3 (gentle)", "0.5 (moderate)", "0.7 (strong)"])
-        save_btn = QPushButton("Save Module")
-        save_btn.clicked.connect(self._save_module)
-        save_row.addWidget(self.mod_name_edit, 2)
-        save_row.addWidget(QLabel("Base voice:"))
-        save_row.addWidget(self.mod_base_voice)
-        save_row.addWidget(QLabel("Strength:"))
-        save_row.addWidget(self.mod_tau_combo)
-        save_row.addWidget(save_btn)
-        layout.addLayout(save_row)
-
-        self.mod_status = QLabel()
-        self.mod_status.setWordWrap(True)
-        layout.addWidget(self.mod_status)
-
-        self.modules_browser = QTextBrowser()
-        self.modules_browser.setOpenLinks(False)
-        self.modules_browser.setMaximumHeight(160)
-        self.modules_browser.anchorClicked.connect(self._module_link)
-        layout.addWidget(self.modules_browser)
-
-        # -- Gated downloads (Hugging Face token for Parler voices) --------
         from app.config.settings import load_settings
 
-        token_row = QHBoxLayout()
-        token_row.addWidget(QLabel("HF token (gated voices):"))
-        self.hf_token_edit = QLineEdit()
-        self.hf_token_edit.setEchoMode(QLineEdit.Password)
-        self.hf_token_edit.setPlaceholderText("hf_... (stored locally only)")
-        self.hf_token_edit.setText(load_settings().hf_token)
-        save_token_btn = QPushButton("Save")
-        save_token_btn.setFixedWidth(60)
-        save_token_btn.setToolTip("Store the token in local settings")
-        save_token_btn.clicked.connect(self._save_hf_token)
-        token_row.addWidget(self.hf_token_edit, 1)
-        token_row.addWidget(save_token_btn)
-        layout.addLayout(token_row)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(
+            "<b>Gemini cloud voices</b> - 30 studio voices, nothing to "
+            "download. Billed by Google per AI Studio pricing."))
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        rows = ["<tr><th>Voice</th><th>Gender</th><th>Character</th></tr>"]
+        from tts.voices.gemini_catalog import CATALOG_VOICES
+
+        for entry in CATALOG_VOICES:
+            rows.append(
+                f"<tr><td>{entry['voice_id']}</td>"
+                f"<td>{entry['gender']}</td>"
+                f"<td>{entry['style']}</td></tr>")
+        browser.setHtml("<table border=1 cellspacing=0 cellpadding=4 "
+                        "width='100%'>" + "".join(rows) + "</table>")
+        layout.addWidget(browser, 1)
+
+        # -- API key ------------------------------------------------------
+        key_row = QHBoxLayout()
+        key_row.addWidget(QLabel("API key:"))
+        self.key_edit = QLineEdit()
+        self.key_edit.setEchoMode(QLineEdit.Password)
+        self.key_edit.setPlaceholderText("Paste key from aistudio.google.com")
+        self.key_edit.setText(load_settings().gemini_api_key)
+        save_btn = QPushButton("Save key")
+        save_btn.setFixedWidth(90)
+        save_btn.clicked.connect(self._save_key)
+        key_row.addWidget(self.key_edit, 1)
+        key_row.addWidget(save_btn)
+        layout.addLayout(key_row)
+        key_hint = QLabel(
+            '<a href="https://aistudio.google.com/apikey">Get a key at '
+            "AI Studio</a> - stored in local settings only, never logged.")
+        key_hint.setOpenExternalLinks(True)
+        layout.addWidget(key_hint)
+
+        # -- Audition ------------------------------------------------------
+        from tts.voices.gemini_catalog import GEMINI_MODELS
+
+        sample_row = QHBoxLayout()
+        sample_row.addWidget(QLabel("Audition:"))
+        self.sample_voice = QComboBox()
+        for entry in CATALOG_VOICES:
+            self.sample_voice.addItem(entry["name"], entry["voice_id"])
+        self.sample_model = QComboBox()
+        self.sample_model.addItems(list(GEMINI_MODELS))
+        play_btn = QPushButton("Play sample")
+        play_btn.clicked.connect(self._play_sample)
+        sample_row.addWidget(self.sample_voice, 1)
+        sample_row.addWidget(self.sample_model)
+        sample_row.addWidget(play_btn)
+        layout.addLayout(sample_row)
+
+        self.status = QLabel("")
+        self.status.setWordWrap(True)
+        layout.addWidget(self.status)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
-        buttons.clicked.connect(lambda _: self.refresh())
         layout.addWidget(buttons)
-        self.refresh()
 
-    def _build_table(self) -> QTextBrowser:
-        self.table = QTextBrowser()
-        self.table.setOpenExternalLinks(True)
-        return self.table
-
-    def refresh(self) -> None:
-        rows = [
-            "<tr><th>Model</th><th>Size</th><th>License</th><th>Commercial</th>"
-            "<th>Status</th><th>Source</th><th></th></tr>"
-        ]
-        for model in list_models():
-            status = ("installed" + ("" if model.verified else " (unverified)")
-                      if model.installed else "not installed")
-            action = ""
-            if model.installed:
-                action = f'<a href="remove:{model.model_id}">Remove</a>'
-            else:
-                action = f'<a href="install:{model.model_id}">Download</a>'
-            rows.append(
-                f"<tr><td>{model.name}</td>"
-                f"<td>{model.size_mb:.0f} MB</td>"
-                f"<td>{model.license}</td>"
-                f"<td>{'YES' if model.commercial_use else 'NO'}</td>"
-                f"<td>{status}</td>"
-                f'<td><a href="{model.source_url}">official source</a></td>'
-                f"<td>{action}</td></tr>"
-            )
-        html = (
-            "<p>" + COMMERCIAL_WARNING + "</p>"
-            "<table border=1 cellspacing=0 cellpadding=4 width='100%'>"
-            + "".join(rows) + "</table>"
-            f"<p>{PRIVACY_NOTICE}</p>"
-        )
-        self.table.setHtml(html)
-        self.table.anchorClicked.connect(self._handle_link)
-        self._refresh_modules()
-
-    def _handle_link(self, url) -> None:
-        text = url.toString()
-        if text.startswith("install:"):
-            self._start_download(text.split(":", 1)[1])
-        elif text.startswith("remove:"):
-            from models.downloader import remove_voice
-
-            remove_voice(text.split(":", 1)[1])
-            self.refresh()
-
-    def _save_hf_token(self) -> None:
+    def _save_key(self) -> None:
         from app.config.settings import load_settings, save_settings
+        from tts.manager import reset_provider
 
         settings = load_settings()
-        settings.hf_token = self.hf_token_edit.text().strip()
+        settings.gemini_api_key = self.key_edit.text().strip()
         save_settings(settings)
-        self.mod_status.setText("Token saved locally.")
-        self.mod_status.setStyleSheet("color: #7fbf7f;")
+        reset_provider("gemini")
+        self.status.setText("API key saved locally.")
+        self.status.setStyleSheet("color: #7fbf7f;")
 
-    def _hf_token(self) -> str:
-        token = self.hf_token_edit.text().strip()
-        if token:
-            return token
-        from app.config.settings import load_settings
-
-        return load_settings().hf_token
-
-    def _start_download(self, voice_id: str) -> None:
+    def _play_sample(self) -> None:
         if self._thread is not None and self._thread.isRunning():
             return
-        from tts.voices.catalog import get_voice
-
-        info = get_voice(voice_id)
-        if info is not None and info.engine == "parler":
-            license_ok = QMessageBox.question(
-                self, "Confirm license",
-                f"Download {voice_id}?\n\nLicense: Apache-2.0 "
-                "(ai4bharat/indic-parler-tts). Commercial use permitted.\n"
-                f"Size: ~{info.model_size_mb:.0f} MB one-time download.\n"
-                "The repo is access-gated: accept the license on Hugging "
-                "Face and paste a read token below first. Continue?",
-            )
-        else:
-            license_ok = QMessageBox.question(
-                self, "Confirm license",
-                f"Download {voice_id}?\n\nLicense: MIT "
-                "(rhasspy/piper-voices). Commercial use permitted. Continue?",
-            )
-        if license_ok != QMessageBox.Yes:
-            return
-        self.progress.setVisible(True)
-        self.progress.setValue(0)
-        self.status.setText(f"Downloading {voice_id}...")
-        self._thread = _DownloadThread(voice_id, self, self._hf_token())
-        self._thread.progress.connect(self._on_progress)
-        self._thread.done.connect(self._on_done)
-        self._thread.failed.connect(self._on_failed)
+        voice = self.sample_voice.currentData()
+        model = self.sample_model.currentText()
+        self.status.setText(f"Synthesizing {voice} sample...")
+        self.status.setStyleSheet("")
+        self._thread = _SampleThread(voice, model, self)
+        self._thread.done.connect(self._on_sample)
+        self._thread.failed.connect(self._on_sample_failed)
         self._thread.start()
 
-    def _on_progress(self, stage: str, done: int, total: int) -> None:
-        percent = int(done / total * 100) if total else 0
-        self.progress.setValue(percent)
-        self.status.setText(f"{stage}: {done}/{total} bytes")
-
-    def _on_done(self, voice_id: str) -> None:
-        self.progress.setVisible(False)
-        self.status.setText(f"Installed {voice_id}.")
-        self.refresh()
-
-    def _on_failed(self, what: str, why: str, actions: list) -> None:
-        self.progress.setVisible(False)
-        self.status.setText(what)
-        QMessageBox.warning(self, "Download failed",
-                            f"{what}\n\nWhy: {why}\n\n" + "\n".join(actions))
-
-    def _browse_module_ref(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select reference voice clip", "",
-            "Audio (*.wav *.mp3 *.flac *.ogg)")
-        if path:
-            self.mod_ref_edit.setText(path)
-
-    def _save_module(self) -> None:
-        from models.voice_modules import save_module, load_modules
-
-        name = self.mod_name_edit.text().strip()
-        ref = self.mod_ref_edit.text().strip()
-        if not name:
-            self.mod_status.setText("Enter a module name.")
-            self.mod_status.setStyleSheet("color: #d9776b;")
-            return
-        if not ref:
-            self.mod_status.setText("Browse for a reference audio file first.")
-            self.mod_status.setStyleSheet("color: #d9776b;")
-            return
-        ref_path = Path(ref)
-        if ref.startswith("http://") or ref.startswith("https://"):
-            try:
-                from audio.clone import engine as clone_engine
-                from app.config.paths import references_dir
-                local = clone_engine.load_reference(ref, references_dir())
-                ref_path = local
-            except Exception as exc:
-                self.mod_status.setText(f"Download failed: {exc}")
-                self.mod_status.setStyleSheet("color: #d9776b;")
-                return
-        if not ref_path.exists():
-            self.mod_status.setText(f"File not found: {ref_path}")
-            self.mod_status.setStyleSheet("color: #d9776b;")
-            return
-        tau_text = self.mod_tau_combo.currentText()
-        tau = float(tau_text.split("(")[0].strip())
-        base_voice = self.mod_base_voice.currentData() or "en_US-lessac-medium"
+    def _on_sample(self, path: str) -> None:
+        self.status.setText(f"Sample ready: {path}")
         try:
-            save_module(name, ref_path, tau=tau, base_voice_id=base_voice)
-        except ValueError as exc:
-            self.mod_status.setText(str(exc))
-            self.mod_status.setStyleSheet("color: #d9776b;")
-            return
-        self.mod_status.setText(f"Saved '{name}'. Now appears in Voice dropdown.")
-        self.mod_status.setStyleSheet("color: #7fbf7f;")
-        self.mod_name_edit.clear()
-        self.mod_ref_edit.clear()
-        self._refresh_modules()
+            from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
-    def _refresh_modules(self) -> None:
-        from models.voice_modules import load_modules
+            if self._player is None:
+                self._player = QMediaPlayer(self)
+                self._player.setAudioOutput(QAudioOutput(self))
+            self._player.setSource(QUrl.fromLocalFile(path))
+            self._player.play()
+        except Exception:  # noqa: BLE001 - playback is best-effort
+            pass
 
-        modules = load_modules()
-        if not modules:
-            self.modules_browser.setHtml(
-                "<p style='color:#8a93a6'>No saved modules yet.</p>")
-            return
-        rows = ["<tr><th>Name</th><th>Base Voice</th><th>Created</th><th>Strength</th><th></th></tr>"]
-        for m in modules:
-            created = m.created_at[:10] if m.created_at else "-"
-            rows.append(
-                f"<tr><td>{m.name}</td><td>{m.base_voice_id}</td>"
-                f"<td>{created}</td><td>{m.tau}</td>"
-                f'<td><a href="delete:{m.name}">Delete</a></td></tr>')
-        html = ("<table border=1 cellspacing=0 cellpadding=4 width='100%'>"
-                + "".join(rows) + "</table>")
-        self.modules_browser.setHtml(html)
-
-    def _module_link(self, url) -> None:
-        text = url.toString()
-        if text.startswith("delete:"):
-            name = text.split(":", 1)[1]
-            from models.voice_modules import delete_module
-            if delete_module(name):
-                self.mod_status.setText(f"Deleted '{name}'.")
-                self.mod_status.setStyleSheet("color: #8a93a6;")
-            self._refresh_modules()
+    def _on_sample_failed(self, what: str, why: str, actions: list) -> None:
+        self.status.setText(what)
+        QMessageBox.warning(self, "Sample failed",
+                            f"{what}\n\nWhy: {why}\n\n" + "\n".join(actions))
 
 
 class AboutDialog(QDialog):
@@ -343,9 +183,12 @@ class AboutDialog(QDialog):
             f"<h2>{APP_NAME} v{VERSION}</h2>"
             f"<p>{APP_TAGLINE}</p>"
             f"<p>{PRIVACY_NOTICE}</p>"
-            "<p>No analytics. No hidden telemetry. No cloud dependency.</p>"
-            "<p>Application code: MIT license. AI models, voices, music and "
-            "SFX have separate licenses - see LICENSES.md.</p>"
+            "<p>No analytics. No hidden telemetry.</p>"
+            "<p>Narration uses the Google Gemini API (your own API key, "
+            "billed by Google). Generated audio carries a SynthID watermark "
+            "applied by Google.</p>"
+            "<p>Application code: MIT license. AI voices are governed by "
+            "the Gemini API Terms of Service - see LICENSES.md.</p>"
         )
         layout.addWidget(browser)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok)
@@ -391,13 +234,13 @@ class CheckUpdatesDialog(QDialog):
     def _open_download(self) -> None:
         if self.url:
             from PySide6.QtGui import QDesktopServices
-            from PySide6.QtCore import QUrl
+            from PySide6.QtCore import QUrl as _QUrl
 
-            QDesktopServices.openUrl(QUrl(self.url))
+            QDesktopServices.openUrl(_QUrl(self.url))
 
 
 class FirstRunWizard(QDialog):
-    """Hardware detection + engine/voice choice on first launch."""
+    """API key setup on first launch."""
 
     def __init__(self, settings: AppSettings, parent=None) -> None:
         super().__init__(parent)
@@ -407,8 +250,7 @@ class FirstRunWizard(QDialog):
         self.resize(560, 420)
         layout = QVBoxLayout(self)
         browser = QTextBrowser()
-        browser.setOpenLinks(False)
-        browser.anchorClicked.connect(self._link)
+        browser.setOpenExternalLinks(True)
         layout.addWidget(browser)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok |
                                    QDialogButtonBox.Cancel)
@@ -418,40 +260,21 @@ class FirstRunWizard(QDialog):
 
         hardware = detect_hardware()
         self.hardware = hardware
-        gpu_text = hardware.gpu_name or "None (CPU MODE)"
-        quality = hardware.recommended_quality
         browser.setHtml(
             "<h3>Welcome!</h3>"
-            "<p>This wizard sets up local AI storytelling on your PC.</p>"
-            f"<h4>Your hardware</h4>"
-            f"<ul><li>CPU: {hardware.cpu_name} ({hardware.cpu_cores} cores)</li>"
-            f"<li>RAM: {hardware.ram_gb:.1f} GB</li>"
-            f"<li>GPU: {gpu_text}"
-            + (f" ({hardware.vram_gb:.1f} GB VRAM)" if hardware.gpu_name else "")
-            + "</li></ul>"
-            f"<p><b>Recommended quality:</b> {quality}</p>"
-            "<h4>TTS engine</h4>"
-            "<p>Piper (local neural TTS, CPU-friendly). Voices are MIT "
-            "licensed from the official rhasspy/piper-voices repository.</p>"
-            "<h4>Next step</h4>"
-            f"<p>Download a starter voice (~63 MB): "
-            '<a href="model:en_US-lessac-medium">Install en_US-lessac-medium'
-            "</a> — or open <b>Models → Model Manager</b> any time.</p>"
+            "<p>StoryVoice Studio narrates your stories with "
+            "Google Gemini voices - natural, expressive, and controllable "
+            "in 70+ languages including Bengali.</p>"
+            "<h4>One-time setup</h4>"
+            "<ol>"
+            '<li>Get a free API key at <a href="https://aistudio.google.com/apikey">'
+            "AI Studio</a>.</li>"
+            "<li>Paste it in the Voice panel's <b>API key</b> field "
+            "(stored on this PC only).</li>"
+            "<li>Pick a narrator voice and press GENERATE.</li>"
+            "</ol>"
+            "<p>Usage is billed by Google per AI Studio pricing - a typical "
+            "10-minute story costs a few cents. Audio carries a SynthID "
+            "watermark applied by Google.</p>"
             f"<p style='color:#d9a441'>{COMMERCIAL_WARNING}</p>"
         )
-
-    def _link(self, url) -> None:
-        text = url.toString()
-        if text.startswith("model:"):
-            voice_id = text.split(":", 1)[1]
-            self._thread = _DownloadThread(voice_id, self)
-            self._thread.done.connect(
-                lambda v: QMessageBox.information(self, "Done",
-                                                  f"Installed {v}."))
-            self._thread.failed.connect(self._download_failed)
-            self._thread.start()
-
-    @staticmethod
-    def _download_failed(what: str, why: str, actions: list) -> None:
-        QMessageBox.warning(None, "Download failed",
-                            f"{what}\n\nWhy: {why}\n\n" + "\n".join(actions))

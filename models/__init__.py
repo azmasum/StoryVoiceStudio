@@ -1,1 +1,1 @@
-"""AI model registry and downloader package."""
+"""Model registry package (Gemini cloud voices - nothing to download)."""

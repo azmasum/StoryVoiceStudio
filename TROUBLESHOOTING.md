@@ -1,17 +1,22 @@
 # Troubleshooting
 
-## Voice download fails: "The process cannot access the file"
-This is usually antivirus (Windows Defender) briefly locking the freshly
-downloaded model file. The app now retries automatically — if you still see
-it, wait a few seconds and press download again.
+## "A Gemini API key is required" / request rejected (400/401/403)
+1. Create a key at <https://aistudio.google.com/apikey> and paste it into
+   the Voice panel's **API key** field (or set the `GEMINI_API_KEY`
+   environment variable for the CLI).
+2. New keys can take a minute to activate - wait and retry.
+3. The key must have access to the selected model
+   (`gemini-2.5-pro-preview-tts` or `gemini-2.5-flash-preview-tts`).
 
-## Voice generation fails: "Voice ... is not downloaded"
-Open **Models → Model Manager** and download the voice (one time, needs
-internet). Everything after that runs offline.
+## Quota exhausted (429)
+The free tier has strict rate limits. Wait a minute and retry (the app
+retries automatically 3 times), generate in smaller batches, or enable
+billing in AI Studio for higher limits. Cached chunks are never billed
+twice - resume and only new sentences cost API calls.
 
-## "The Piper TTS engine is not installed"
-Run `pip install piper-tts` inside your environment, or launch through
-`run_dev.bat` which installs all requirements.
+## "Gemini returned no audio"
+Retry once. If the text was blocked by safety filters, rephrase it
+(us-versus-them framing, graphic content and similar can be refused).
 
 ## MP3 export fails
 MP3 encoding requires FFmpeg:
@@ -21,10 +26,9 @@ MP3 encoding requires FFmpeg:
 WAV and FLAC export work without FFmpeg.
 
 ## Generation is slow
-- CPU mode is normal for Piper; a 10-minute story typically takes a few
-  minutes on 4 cores.
-- Close heavy apps; each chunk is cached, so retries are cheap.
-- "Low quality" voices (`-low`) synthesize faster than `-high`.
+Each chunk is one API round-trip (typically a few seconds). A 10-minute
+story takes a few minutes. Retries are cheap - every finished chunk is
+cached, so re-runs only bill new sentences.
 
 ## The GUI does not open
 Run from a terminal to see the error:
@@ -41,12 +45,12 @@ lower the music level slider. The quality gate warns beyond ±3 LU of target.
 
 ## Resume didn't skip my finished chunks
 Resume reuses chunks whose cache files still exist in the project's `cache\`
-folder. Don't delete the project folder between attempts.
+folder. Don't delete the project folder between attempts. Changing the
+voice, model, emotion or style re-bills those chunks (new cache keys).
 
 ## Where are my files?
 - Projects: `<userdata>\Projects\<name>\`
 - Exports: inside the project folder under `exports\`
-- Voices/models: `<userdata>\models\voices\`
 - Logs: `<userdata>\logs\` (open via Settings → Open Logs Folder)
 
 `<userdata>` is `G:\...\StoryVoiceStudio\userdata` when run from source, or

@@ -1,19 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for StoryVoice Studio (Windows, one-folder portable build)
-
-import os
-from PyInstaller.utils.hooks import collect_data_files
+# PyInstaller spec for StoryVoice Studio (Windows, one-folder portable build).
+#
+# Narration runs on the Google Gemini API (stdlib urllib only), so no TTS
+# engine packages are bundled - the build is small and fully offline except
+# for the API calls the user triggers.
 
 block_cipher = None
 
 datas = [
     ("..\\assets", "assets"),
-    ("..\\models", "models"),
-    # Vendored MIT-licensed OpenVoice (voice-clone tone transfer). Copied
-    # as a top-level package so `import openvoice` resolves at runtime.
-    ("..\\audio\\clone\\openvoice", "openvoice"),
 ]
-datas += collect_data_files("piper", include_py_files=False)
 
 a = Analysis(
     ["..\\app\\main.py"],
@@ -21,37 +17,13 @@ a = Analysis(
     binaries=[],
     datas=datas,
     hiddenimports=[
-        "piper",
         "soundfile",
         "pyloudnorm",
         "appdirs",
         "scipy.signal",
         "scipy.io.wavfile",
         "PySide6.QtMultimedia",
-        # PyInstaller often misses these stdlib modules that torch/librosa
-        # need at runtime (they are in the PYZ archive only if explicitly
-        # imported during analysis, which never happens for clone_libs).
-        "ctypes.wintypes",
-        "pickletools",
-        "unittest.mock",
-        "aifc",
-        "chunk",
-        "imghdr",
-        "sndhdr",
-        "mailcap",
-        "cgi",
-        "cgitb",
-        "uu",
-        "xdrlib",
-        "pipes",
-        "telnetlib",
-        "nntplib",
-        "audioop",
-        "sunau",
         "wave",
-        "lib2to3",
-        "distutils",
-        "msilib",
     ],
     hookspath=[],
     hooksconfig={},

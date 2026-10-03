@@ -14,8 +14,6 @@ StoryVoice Studio source code is licensed under the **MIT License** — see
 | SciPy | BSD-3 | scipy.org |
 | libsndfile (via soundfile) | LGPL-2.1 | libsndfile.github.io |
 | pyloudnorm | MIT | github.com/csteinmetz1/pyloudnorm |
-| piper-tts | MIT | github.com/rhasspy/piper |
-| onnxruntime | MIT | onnxruntime.ai |
 | FFmpeg (optional, user-installed) | GPL/LGPL depending on build | ffmpeg.org |
 
 Qt is used through its LGPL-licensed dynamic linking; StoryVoice Studio ships
@@ -24,13 +22,10 @@ build and the app only shells out to it.
 
 ## AI models & voices
 
-See [MODEL_GUIDE.md](MODEL_GUIDE.md). Engine and voices are MIT licensed by
-their upstream projects. Model files are downloaded at runtime from official
-sources with checksum recording — they are **not** part of this repository.
-
-Exception: **Indic Parler-TTS** (`ai4bharat/indic-parler-tts`) is licensed
-**Apache-2.0** (commercial use permitted, see the upstream model card). It is
-downloaded on demand (~4 GB) and never bundled.
+See [MODEL_GUIDE.md](MODEL_GUIDE.md). Narration runs on the Google Gemini
+API under the Gemini API Terms of Service (paid API - verify commercial
+terms in your console). Nothing is downloaded or bundled; every request
+is billed by Google.
 
 ## Music & SFX
 

@@ -4,6 +4,27 @@ All notable changes to StoryVoice Studio are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - Gemini rebuild
+
+Complete rebuild around the Google Gemini TTS API
+(`gemini-2.5-pro-preview-tts`, alt `gemini-2.5-flash-preview-tts`).
+
+### Added
+- 30 Gemini studio voices with narrator + dialogue voice routing
+  (dialogue-heavy chunks speak with the dialogue voice).
+- Natural-language style control: every emotion/preset maps to a style
+  direction ("Read aloud in a fearful, trembling voice: ...").
+- API key management (local settings only), Voices browser with live
+  audition, per-generation usage tracking (chars + audio minutes).
+- Retries with backoff on quota/transient failures; friendly billing,
+  auth and safety-filter errors.
+
+### Removed
+- All local engines: Piper + Parler providers, OpenVoice clone,
+  voice-clone modules, model downloads, bundled voices (~650 MB).
+  The app and its installer are small again; narration needs internet
+  and a Gemini API key (billed by Google, a few cents per story).
+
 ## [Unreleased]
 
 ### Added (voices)

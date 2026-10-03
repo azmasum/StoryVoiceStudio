@@ -1,15 +1,19 @@
 # User Guide
 
-StoryVoice Studio turns your written stories into professional narration —
-completely offline.
+StoryVoice Studio turns your written stories into professional narration
+with Google Gemini voices.
 
 ## 1. First launch
 
-1. The **first-run wizard** shows your CPU/RAM/GPU and recommends a quality tier.
-2. Click the voice link to download a starter voice (~20–63 MB, one time).
-   Downloads come only from the official piper-voices repository, and SHA256
-   checksums are recorded automatically.
-3. Press OK. You can install more voices any time via **Models → Model Manager**.
+1. Get a free API key at
+   [AI Studio](https://aistudio.google.com/apikey).
+2. Paste it into the Voice panel's **API key** field (stored on this PC
+   only, never logged).
+3. Pick a narrator voice (default **Charon**) and press OK.
+
+Usage is billed by Google per AI Studio pricing — a typical 10-minute
+story costs a few cents. Every generation shows its characters + audio
+minutes.
 
 ## 2. Writing your script
 
@@ -37,10 +41,14 @@ pronunciations to `assets/pronunciations.json`.
 - **Preset**: Documentary, Horror, Mystery, True Crime, Emotional,
   Motivational, Romance, Sci-Fi, Historical, Bedtime, Dark Story, Cinematic.
   Each sets WPM, pause length, emotion intensity, music mood and mastering.
-- **Voice**: 7 US-English voices (male/female). Keep **VOICE LOCK** on so all
-  chunks use identical settings.
-- **WPM**: target speaking rate (120–180). Each chunk is measured; drifting
-  chunks are re-synthesized once to keep the narration consistent.
+- **Voice**: 30 Gemini studio voices. **Narrator** reads the story;
+  **Dialogue** (default Puck) reads dialogue-heavy chunks — pick clearly
+  different timbres so speakers stay distinct. Browse + audition all 30 in
+  **Voices → Browse Voices**.
+- **Model**: `gemini-2.5-pro-preview-tts` (best quality) or
+  `gemini-2.5-flash-preview-tts` (faster/cheaper).
+- **WPM**: target speaking rate estimate (120–180). Pace is steered with
+  style directions since the API has no rate knob.
 
 ## 4. Music
 

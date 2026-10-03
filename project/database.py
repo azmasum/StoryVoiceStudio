@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from audio.mixer.mixdown import TrackEvent
@@ -15,14 +15,15 @@ from script.chunker import Chunk
 
 log = logging.getLogger("app")
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 @dataclass
 class GenerationSettings:
-    voice_id: str = "en_US-lessac-medium"
-    speaker_id: int | None = None
-    tts_engine: str = "piper"
+    voice_id: str = "Charon"
+    dialogue_voice: str = "Puck"
+    gemini_model: str = "gemini-2.5-pro-preview-tts"
+    tts_engine: str = "gemini"
     target_wpm: int = 155
     preset: str = "DOCUMENTARY"
     auto_emotion: bool = True
@@ -48,10 +49,6 @@ class GenerationSettings:
     # Voice character presets
     meditation_preset: bool = False            # legacy (pre-0.2 projects)
     voice_character: str = "standard"          # standard|meditation|psychology
-
-    # Voice clone (OpenVoice tone transfer)
-    clone_enabled: bool = False
-    clone_ref_path: str = ""
 
 
 @dataclass
@@ -88,7 +85,10 @@ class StoryProject:
     def from_dict(cls, data: dict) -> "StoryProject":
         if int(data.get("format_version", 0)) > FORMAT_VERSION:
             log.warning("Project was saved by a newer version - loading best-effort")
-        settings = GenerationSettings(**data.get("settings", {}))
+        raw_settings = data.get("settings", {})
+        known = {f.name for f in fields(GenerationSettings)}
+        settings = GenerationSettings(
+            **{k: v for k, v in raw_settings.items() if k in known})
         return cls(
             name=data.get("name", "Untitled Story"),
             script_text=data.get("script_text", ""),

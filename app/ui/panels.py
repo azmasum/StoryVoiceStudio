@@ -19,9 +19,8 @@ from PySide6.QtWidgets import (
 )
 
 from emotion.presets import DEFAULT_PRESET, get_preset, preset_names
-from models.downloader import is_voice_installed
 from project.database import GenerationSettings
-from tts.voices.catalog import CATALOG_VOICES
+from tts.voices.gemini_catalog import DEFAULT_DIALOGUE, DEFAULT_NARRATOR, GEMINI_MODELS
 
 
 class ControlsPanel(QWidget):
@@ -34,28 +33,41 @@ class ControlsPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 4, 2, 4)
 
-        # -- Voice ----------------------------------------------------------
+        # -- Voice (Gemini cloud voices) ------------------------------------
         voice_box = QGroupBox("Voice")
         voice_form = QFormLayout(voice_box)
         self.voice_combo = QComboBox()
+        self.dialogue_combo = QComboBox()
         self.voice_label = QLabel()
         self.voice_label.setWordWrap(True)
         self._reload_voices()
         self._update_voice_info()
         self.voice_combo.currentIndexChanged.connect(self._on_voice_changed)
         self.voice_combo.currentIndexChanged.connect(self.settings_changed)
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._reload_voices)
-        voice_form.addRow("Voices:", self.voice_combo)
-        self.speaker_combo = QComboBox()
-        self.speaker_combo.currentIndexChanged.connect(self.settings_changed)
-        self.speaker_combo.setEnabled(False)
-        voice_form.addRow("Speaker:", self.speaker_combo)
+        self.dialogue_combo.currentIndexChanged.connect(self.settings_changed)
+        voice_form.addRow("Narrator:", self.voice_combo)
+        voice_form.addRow("Dialogue:", self.dialogue_combo)
+        self.dialogue_combo.setToolTip(
+            "Voice for dialogue-heavy chunks. Pick a clearly different "
+            "timbre (e.g. Charon + Puck) so speakers stay distinct.")
         voice_form.addRow(self.voice_label)
-        voice_form.addRow(refresh_btn)
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(list(GEMINI_MODELS))
+        self.model_combo.setToolTip(
+            "Pro: best quality. Flash: faster and cheaper.")
+        self.model_combo.currentIndexChanged.connect(self.settings_changed)
+        voice_form.addRow("Model:", self.model_combo)
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.Password)
+        self.api_key_edit.setPlaceholderText("Gemini API key (stored locally)")
+        self.api_key_edit.editingFinished.connect(self._save_api_key)
+        voice_form.addRow("API key:", self.api_key_edit)
+        self.usage_label = QLabel("Usage this session: -")
+        self.usage_label.setWordWrap(True)
+        voice_form.addRow(self.usage_label)
         self.voice_lock = QCheckBox("Voice lock")
         self.voice_lock.setToolTip(
-            "Keep the same voice consistently across all chunks.")
+            "Keep the same voices consistently across all chunks.")
         self.voice_lock.setChecked(True)
         voice_form.addRow(self.voice_lock)
         layout.addWidget(voice_box)
@@ -175,47 +187,22 @@ class ControlsPanel(QWidget):
 
     # -- helpers ----------------------------------------------------------------
 
-    def _reload_voices(self) -> None:
-        self.voice_combo.blockSignals(True)
-        self.voice_combo.clear()
-        for entry in CATALOG_VOICES:
-            installed = is_voice_installed(entry["voice_id"])
-            suffix = "" if installed else "  (download required)"
-            self.voice_combo.addItem(entry["name"] + suffix, entry["voice_id"])
-        # Append saved voice-clone modules
-        from models.voice_modules import load_modules
-        modules = load_modules()
-        if modules:
-            self.voice_combo.insertSeparator(self.voice_combo.count())
-            for m in modules:
-                self.voice_combo.addItem(
-                    f"{m.name}  (cloned)", f"module:{m.name}")
-        self.voice_combo.blockSignals(False)
-        self._update_voice_info()
-
     def _update_voice_info(self) -> None:
-        voice_id = self.current_voice_id()
-        if voice_id.startswith("module:"):
-            from models.voice_modules import load_modules
-            name = voice_id.split(":", 1)[1]
-            for m in load_modules():
-                if m.name == name:
-                    self.voice_label.setText(
-                        f"Cloned voice module: {m.name} "
-                        f"(strength {m.tau})")
-                    return
-            self.voice_label.setText("Cloned voice module (not found)")
-            return
-        for entry in CATALOG_VOICES:
-            if entry["voice_id"] == voice_id:
-                commercial = "YES" if entry["commercial_use"] else "NO"
-                self.voice_label.setText(
-                    f"{entry['gender'].capitalize()} Â· {entry['accent']} Â· "
-                    f"style: {entry['style']} Â· license: {entry['license']} Â· "
-                    f"commercial use: {commercial} Â· ~{entry['model_size_mb']:.0f} MB"
-                )
-                return
-        self.voice_label.setText("")
+        from tts.voices.catalog import CATALOG_VOICES
+
+        narrator = self.current_voice_id()
+        dialogue = self.current_dialogue_voice()
+        notes = []
+        for voice_id in (narrator, dialogue):
+            for entry in CATALOG_VOICES:
+                if entry["voice_id"] == voice_id:
+                    notes.append(f"{voice_id} ({entry['style']})")
+                    break
+        self.voice_label.setText(
+            "Narrator: " + (notes[0] if notes else narrator) + "\n"
+            "Dialogue: " + (notes[1] if len(notes) > 1 else dialogue) + "\n"
+            "Cloud voices - billed by Google per AI Studio pricing. "
+            "Audio carries a SynthID watermark.")
 
     def _update_preset_info(self) -> None:
         key = self.preset_combo.currentData() or DEFAULT_PRESET
@@ -247,40 +234,58 @@ class ControlsPanel(QWidget):
 
     def _on_voice_changed(self) -> None:
         self._update_voice_info()
-        self._reload_speakers()
 
-    def _reload_speakers(self) -> None:
-        """Populate the speaker picker for multi-speaker voices."""
-        from tts.voices.catalog import get_speakers
+    def _save_api_key(self) -> None:
+        from app.config.settings import load_settings, save_settings
+        from tts.manager import reset_provider
 
-        speakers = get_speakers(self.current_voice_id())
-        self.speaker_combo.blockSignals(True)
-        self.speaker_combo.clear()
-        if speakers:
-            for name, sid in speakers:
-                self.speaker_combo.addItem(f"Speaker {sid + 1} ({name})", sid)
-            self.speaker_combo.setEnabled(True)
-        else:
-            self.speaker_combo.setEnabled(False)
-        self.speaker_combo.blockSignals(False)
+        settings = load_settings()
+        settings.gemini_api_key = self.api_key_edit.text().strip()
+        save_settings(settings)
+        reset_provider("gemini")
 
-    def current_speaker_id(self) -> int | None:
-        data = self.speaker_combo.currentData()
-        return int(data) if self.speaker_combo.isEnabled() and data is not None else None
+    def _reload_voices(self) -> None:
+        from tts.voices.catalog import CATALOG_VOICES
+
+        for combo, default in ((self.voice_combo, DEFAULT_NARRATOR),
+                               (self.dialogue_combo, DEFAULT_DIALOGUE)):
+            combo.blockSignals(True)
+            combo.clear()
+            for entry in CATALOG_VOICES:
+                combo.addItem(entry["name"], entry["voice_id"])
+            index = combo.findData(default)
+            combo.setCurrentIndex(index if index >= 0 else 0)
+            combo.blockSignals(False)
 
     def current_voice_id(self) -> str:
         data = self.voice_combo.currentData()
-        return str(data) if data else "en_US-lessac-medium"
+        return str(data) if data else DEFAULT_NARRATOR
+
+    def current_dialogue_voice(self) -> str:
+        data = self.dialogue_combo.currentData()
+        return str(data) if data else DEFAULT_DIALOGUE
+
+    def current_model(self) -> str:
+        return self.model_combo.currentText()
+
+    def set_usage(self, chars: int, audio_seconds: float) -> None:
+        minutes = audio_seconds / 60.0
+        self.usage_label.setText(
+            f"Usage this session: {chars:,} chars, {minutes:.1f} min audio "
+            "(billed by Google - see AI Studio billing)")
 
     def apply_settings(self, settings: GenerationSettings) -> None:
         index = self.voice_combo.findData(settings.voice_id)
         if index >= 0:
             self.voice_combo.setCurrentIndex(index)
-        self._reload_speakers()
-        if settings.speaker_id is not None:
-            sid = self.speaker_combo.findData(settings.speaker_id)
-            if sid >= 0:
-                self.speaker_combo.setCurrentIndex(sid)
+        index = self.dialogue_combo.findData(
+            getattr(settings, "dialogue_voice", DEFAULT_DIALOGUE))
+        if index >= 0:
+            self.dialogue_combo.setCurrentIndex(index)
+        index = self.model_combo.findText(
+            getattr(settings, "gemini_model", GEMINI_MODELS[0]))
+        if index >= 0:
+            self.model_combo.setCurrentIndex(index)
         index = self.preset_combo.findData(settings.preset)
         if index >= 0:
             self.preset_combo.setCurrentIndex(index)
@@ -301,44 +306,16 @@ class ControlsPanel(QWidget):
             else "standard")
         index = self.character_combo.findData(character)
         self.character_combo.setCurrentIndex(index if index >= 0 else 0)
-        # If settings had clone info, find matching module in combo
-        clone_enabled = getattr(settings, "clone_enabled", False)
-        clone_ref = getattr(settings, "clone_ref_path", "")
-        if clone_enabled and clone_ref:
-            from models.voice_modules import load_modules, module_ref_path
-            from app.config.paths import voice_modules_dir
-            for m in load_modules():
-                m_ref = module_ref_path(m.name)
-                if m_ref and str(m_ref) == clone_ref:
-                    idx = self.voice_combo.findData(f"module:{m.name}")
-                    if idx >= 0:
-                        self.voice_combo.setCurrentIndex(idx)
-                        return
+        from app.config.settings import load_settings
+
+        self.api_key_edit.setText(load_settings().gemini_api_key)
 
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
-        voice_id = self.current_voice_id()
-        clone_enabled = False
-        clone_ref_path = ""
-        if voice_id.startswith("module:"):
-            from models.voice_modules import (
-                load_modules, module_ref_path, module_base_voice)
-            name = voice_id.split(":", 1)[1]
-            for m in load_modules():
-                if m.name == name:
-                    break
-            ref = module_ref_path(name)
-            if ref:
-                clone_enabled = True
-                clone_ref_path = str(ref)
-            voice_id = module_base_voice(name)
-        from tts.voices.catalog import get_voice
-
-        _info = get_voice(voice_id)
-        _engine = _info.engine if _info else "piper"
         return GenerationSettings(
-            voice_id=voice_id,
-            tts_engine=_engine,
-            speaker_id=self.current_speaker_id(),
+            voice_id=self.current_voice_id(),
+            dialogue_voice=self.current_dialogue_voice(),
+            gemini_model=self.current_model(),
+            tts_engine="gemini",
             target_wpm=int(self.wpm_spin.value()),
             preset=self.preset_combo.currentData() or DEFAULT_PRESET,
             auto_emotion=self.auto_emotion.isChecked(),
@@ -355,6 +332,4 @@ class ControlsPanel(QWidget):
             export_format=self.format_combo.currentText(),
             export_stems=self.export_stems.isChecked(),
             voice_character=self.character_combo.currentData() or "standard",
-            clone_enabled=clone_enabled,
-            clone_ref_path=clone_ref_path,
         )

@@ -86,7 +86,7 @@ def _detect_gpu(info: HardwareInfo) -> None:
             info.notes.append("CUDA not available - running in CPU MODE.")
     except ImportError:
         info.notes.append(
-            "PyTorch is not installed - CPU MODE (recommended for Piper TTS)."
+            "PyTorch is not installed - CPU MODE (all narration is cloud-based)."
         )
     except Exception as exc:  # noqa: BLE001 - any driver error must not crash
         log.debug("GPU probe failed: %s", exc)

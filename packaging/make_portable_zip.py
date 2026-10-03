@@ -2,11 +2,10 @@
 
 Outputs into dist/:
   - StoryVoiceStudio-Portable.zip   (unzip anywhere, run Install.bat)
-  - StoryVoiceStudio-Setup.exe      (double-click -> installs)
+  - StoryVoiceStudio-Setup.exe      (double-click -> installs, needs 7zSD.sfx)
 
-Both contain the app plus the installer scripts; the optional
-voice-clone pack is excluded from the payload (the installer can
-fetch it on demand).
+Both contain the app plus the installer scripts. Narration runs on the
+Google Gemini API, so no voice models ship in the payload.
 """
 import pathlib
 import shutil

@@ -86,8 +86,8 @@ def _install_fake(monkeypatch) -> FakeTTSProvider:
     fake = FakeTTSProvider()
     import app.core.generator as generator_module
 
-    monkeypatch.setattr(generator_module, "get_provider",
-                        lambda engine: fake)
+    monkeypatch.setattr(generator_module, "get_configured_provider",
+                        lambda: fake)
     return fake
 
 
@@ -120,10 +120,8 @@ def test_full_generation_pipeline(tmp_path: Path, monkeypatch):
     assert outcome.chunk_count_done == outcome.chunk_count_total
     assert outcome.duration_seconds > 0
     assert outcome.output_paths and outcome.output_paths[0].exists()
-    # Every chunk synthesized at least once; the WPM consistency pass may
-    # legitimately re-synthesize drifting chunks (at most one retry each).
-    assert fake.calls >= outcome.chunk_count_done
-    assert fake.calls <= outcome.chunk_count_done * 2
+    # Every chunk synthesized exactly once (cloud API: no blind retries).
+    assert fake.calls == outcome.chunk_count_done
     rendered = outcome.output_paths[0]
     assert _wav_duration(rendered) > outcome.duration_seconds * 0.8
 
@@ -201,22 +199,11 @@ def test_resume_skips_cached_chunks(tmp_path: Path, monkeypatch):
     cache = ChunkCache(tmp_path / "cache")
 
     # Pre-populate cache for the first chunk only.
-    from app.core.generator import _hash01
-    from emotion.prosody import (clamp_length_scale, plan_prosody,
-                                 wpm_to_length_scale)
-    from project.cache import chunk_cache_key
+    from app.core.generator import chunk_key_for
+    from project.cache import ChunkCache
 
     first = chunks[0]
-    plan = plan_prosody(first.emotion or "NEUTRAL", first.effects, 0.0,
-                        first.pause_after, global_intensity=0.7)
-    micro_rate = 1.0 + (_hash01("rate:" + first.text) - 0.5) * 0.04
-    scale = clamp_length_scale(
-        wpm_to_length_scale(150.0, first.wpm_target)
-        * plan.length_scale * micro_rate)
-    key = chunk_cache_key(first.text, options.voice_id, options.engine,
-                          scale,
-                          first.wpm_target, first.emotion,
-                          effects=tuple(sorted(first.effects)))
+    key = chunk_key_for(first, options)
     source = tmp_path / "seed.wav"
     t = np.linspace(0, 1.0, RATE, endpoint=False)
     sf.write(str(source), (0.2 * np.sin(2 * np.pi * 250 * t)).astype(np.float32), RATE)
