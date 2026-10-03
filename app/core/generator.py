@@ -69,17 +69,34 @@ class GenerationOptions:
 
     @classmethod
     def from_settings(cls, settings: GenerationSettings) -> "GenerationOptions":
+        from tts.manager import resolve_engine
+
         character = getattr(settings, "voice_character", "") or (
             "meditation" if getattr(settings, "meditation_preset", False)
             else "standard")
         if character not in ("standard", "meditation", "psychology"):
             character = "standard"
+        from tts.voices import edge_catalog, gemini_catalog
+        from tts.voices.catalog import get_voice
+
+        engine = resolve_engine(getattr(settings, "tts_engine", "edge"))
+        if engine == "edge":
+            narrator, dialogue = (edge_catalog.DEFAULT_NARRATOR,
+                                  edge_catalog.DEFAULT_DIALOGUE)
+        else:
+            narrator, dialogue = (gemini_catalog.DEFAULT_NARRATOR,
+                                  gemini_catalog.DEFAULT_DIALOGUE)
+        voice_id = (settings.voice_id if get_voice(settings.voice_id)
+                    else narrator)
+        dialogue_voice = (getattr(settings, "dialogue_voice", "") or "")
+        if not get_voice(dialogue_voice):
+            dialogue_voice = dialogue
         return cls(
-            voice_id=settings.voice_id,
-            dialogue_voice=getattr(settings, "dialogue_voice", "Puck"),
+            voice_id=voice_id,
+            dialogue_voice=dialogue_voice,
             gemini_model=getattr(settings, "gemini_model",
                                   "gemini-2.5-pro-preview-tts"),
-            engine="gemini",
+            engine=engine,
             target_wpm=settings.target_wpm,
             preset_key=settings.preset,
             auto_emotion=settings.auto_emotion,

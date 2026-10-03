@@ -15,7 +15,17 @@ def test_only_gemini_engine_registered():
 
 def test_unknown_engine_rejected():
     with pytest.raises(ValueError):
-        get_provider("piper")  # removed engine stays rejected
+        get_provider("definitely-not-an-engine")
+
+
+def test_legacy_engines_map_to_edge():
+    from tts.manager import resolve_engine
+    from tts.providers.edge_provider import EdgeTTSProvider
+
+    assert resolve_engine("piper") == "edge"
+    assert resolve_engine("parler") == "edge"
+    assert resolve_engine("gemini") == "gemini"
+    assert isinstance(get_provider("piper"), EdgeTTSProvider)
 
 
 def test_voice_catalog_lists_both_engines():

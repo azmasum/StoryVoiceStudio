@@ -180,7 +180,21 @@ def test_manager_routes_gemini():
     assert available_engines() == ["edge", "gemini"]
     assert isinstance(get_provider("gemini"), GeminiTTSProvider)
     with pytest.raises(ValueError):
-        get_provider("piper")
+        get_provider("nope")
+
+
+def test_old_projects_migrate_to_edge():
+    """A v0.1 project (piper engine + piper voices) still loads + runs."""
+    from app.core.generator import GenerationOptions
+    from project.database import GenerationSettings
+
+    settings = GenerationSettings(
+        voice_id="en_US-lessac-medium", dialogue_voice="",
+        tts_engine="piper")
+    options = GenerationOptions.from_settings(settings)
+    assert options.engine == "edge"
+    assert options.voice_id == "en-US-AriaNeural"
+    assert options.dialogue_voice == "en-US-GuyNeural"
 
 
 def test_chunk_key_covers_style_and_model():

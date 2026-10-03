@@ -65,10 +65,17 @@ def load_settings() -> AppSettings:
         raw = json.loads(path.read_text(encoding="utf-8"))
         known = {f.name for f in fields(AppSettings)}
         filtered = {k: v for k, v in raw.items() if k in known}
-        return AppSettings(**filtered)
+        settings = AppSettings(**filtered)
     except Exception:  # noqa: BLE001 - corrupt settings must not crash startup
         log.exception("Failed to read settings; using defaults")
         return AppSettings()
+    # Migrate engines removed in v0.2+ (piper/parler -> edge).
+    from tts.manager import available_engines, resolve_engine
+
+    engine = resolve_engine(settings.tts_engine)
+    settings.tts_engine = (engine if engine in available_engines()
+                           else "edge")
+    return settings
 
 
 def save_settings(settings: AppSettings) -> None:
