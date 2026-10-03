@@ -4,18 +4,35 @@ StoryVoice Studio separates **application licensing** from **model/voice
 licensing**. Facts below are taken from the official sources listed — never
 fabricated. Always re-verify at the source before commercial use.
 
-## TTS engine
+## TTS engines
+
+### EdgeTTS (default) — free, keyless
 
 | Property | Value |
 |----------|-------|
-| Engine | Google Gemini API (`gemini-2.5-pro-preview-tts`, alt `gemini-2.5-flash-preview-tts`) |
-| License | Gemini API Terms of Service (paid API) |
-| Commercial use | ✅ Yes on the paid tier (verify current terms in your console) |
-| Runs locally | ❌ Cloud API — needs internet + your own API key |
-| Audio format | 24 kHz 16-bit PCM mono, SynthID-watermarked by Google |
+| Engine | Microsoft Edge online TTS via `edge-tts` (unofficial keyless access) |
+| License | Microsoft service terms — **verify before commercial use** |
+| Commercial use | ⚠️ Verify Microsoft's terms first |
+| Runs locally | ❌ Cloud service — needs internet, no key, no billing |
+| Audio format | 24 kHz MP3 stream, decoded locally to 44.1 kHz WAV |
+| Control | Real rate (±30%) and pitch (±40 Hz) knobs per chunk |
 
-Docs: <https://ai.google.dev/gemini-api/docs/speech-generation>
-Keys: <https://aistudio.google.com/apikey>
+8 curated voices (verified live):
+
+| Voice ID | Gender | Character |
+|----------|--------|-----------|
+| bn-BD-NabanitaNeural | Female | Bangladeshi Bengali, friendly |
+| bn-BD-PradeepNeural | Male | Bangladeshi Bengali, friendly |
+| en-US-AriaNeural | Female | News/Novel |
+| en-US-JennyNeural | Female | General |
+| en-US-EmmaMultilingualNeural | Female | Conversation |
+| en-US-MichelleNeural | Female | News |
+| en-US-GuyNeural | Male | News/Novel |
+| en-US-AndrewMultilingualNeural | Male | Conversation |
+
+Defaults: narrator **AriaNeural**, dialogue **GuyNeural**.
+
+### Gemini (premium) — API key + billing
 
 ## Voices (30 prebuilt studio voices)
 
@@ -64,13 +81,14 @@ Audition any voice from **Voices → Browse Voices** (plays a live sample).
 | Category | Items in this repo |
 |----------|--------------------|
 | ✅ COMMERCIAL-SAFE (per current upstream terms) | Gemini API paid-tier narration |
-| ⚠️ NON-COMMERCIAL / verify first | Any music or SFX files you import yourself |
+| ⚠️ VERIFY FIRST | EdgeTTS narration (Microsoft terms), any music/SFX you import |
 
 The app never silently recommends research-only models for monetized content.
 
 ## Billing
 
-Usage is billed by Google per AI Studio pricing (text in + audio out).
-Every generation reports its characters + audio minutes; a typical
-10-minute story costs a few cents. Re-renders reuse cached chunks, so
-unchanged sentences are never billed twice.
+EdgeTTS is free (no billing at all). Gemini usage is billed by Google per
+AI Studio pricing (text in + audio out). Every generation reports its
+characters + audio minutes; a typical 10-minute Gemini story costs a few
+cents. Re-renders reuse cached chunks, so unchanged sentences are never
+billed twice.

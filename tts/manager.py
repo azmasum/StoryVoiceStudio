@@ -11,13 +11,19 @@ _PROVIDERS: dict[str, TTSProvider] = {}
 
 
 def available_engines() -> list[str]:
-    return ["gemini"]
+    # EdgeTTS first: free and keyless. Gemini needs an API key + billing.
+    return ["edge", "gemini"]
 
 
 def get_provider(engine: str) -> TTSProvider:
     """Return a shared provider instance for *engine*."""
-    key = (engine or "gemini").lower()
+    key = (engine or "edge").lower()
     if key in _PROVIDERS:
+        return _PROVIDERS[key]
+    if key == "edge":
+        from tts.providers.edge_provider import EdgeTTSProvider
+
+        _PROVIDERS[key] = EdgeTTSProvider()
         return _PROVIDERS[key]
     if key == "gemini":
         from tts.providers.gemini_provider import GeminiTTSProvider
@@ -29,7 +35,7 @@ def get_provider(engine: str) -> TTSProvider:
 
 def reset_provider(engine: str) -> None:
     """Unload a cached provider (used when settings change)."""
-    provider = _PROVIDERS.pop((engine or "gemini").lower(), None)
+    provider = _PROVIDERS.pop((engine or "edge").lower(), None)
     if provider is not None:
         try:
             provider.unload_model()
@@ -38,11 +44,12 @@ def reset_provider(engine: str) -> None:
 
 
 def get_configured_provider() -> TTSProvider:
-    """Provider wired with the API key + model from local settings."""
+    """Provider wired from local settings (engine + Gemini key/model)."""
     from app.config.settings import load_settings
 
     settings = load_settings()
-    provider = get_provider("gemini")
-    if hasattr(provider, "configure"):
+    engine = (settings.tts_engine or "edge").lower()
+    provider = get_provider(engine)
+    if engine == "gemini" and hasattr(provider, "configure"):
         provider.configure(settings.gemini_api_key, settings.gemini_model)
     return provider

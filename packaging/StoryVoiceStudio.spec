@@ -11,6 +11,16 @@ datas = [
     ("..\\assets", "assets"),
 ]
 
+# Bundle the imageio-ffmpeg static binary next to the exe so MP3 decode
+# (EdgeTTS ingest) and MP3 export work with zero setup.
+try:
+    import imageio_ffmpeg
+
+    _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    datas.append((_ffmpeg_exe, "ffmpeg"))
+except Exception:
+    pass
+
 a = Analysis(
     ["..\\app\\main.py"],
     pathex=[".."],

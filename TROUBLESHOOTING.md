@@ -1,5 +1,10 @@
 # Troubleshooting
 
+## EdgeTTS fails / is slow
+EdgeTTS is a free shared endpoint: it needs internet and politely paced
+requests. The app already paces chunks (Voice panel → API pacing). If it
+fails, wait a minute and resume — finished chunks are cached.
+
 ## "A Gemini API key is required" / request rejected (400/401/403)
 1. Create a key at <https://aistudio.google.com/apikey> and paste it into
    the Voice panel's **API key** field (or set the `GEMINI_API_KEY`

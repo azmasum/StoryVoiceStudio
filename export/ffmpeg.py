@@ -1,7 +1,8 @@
-"""Locate and drive FFmpeg for MP3/M4A export.
+"""Locate and drive FFmpeg for MP3/M4A export and MP3 ingest.
 
-FFmpeg is not bundled with the repository. We search PATH, common install
-locations and an optional ``ffmpeg`` folder next to the executable.
+Resolution order: STORYVOICE_FFMPEG override, PATH, the imageio-ffmpeg
+bundled binary (pip package, also shipped inside the frozen app), then
+common install locations.
 """
 from __future__ import annotations
 
@@ -24,9 +25,23 @@ def find_ffmpeg() -> str | None:
     found = shutil.which("ffmpeg")
     if found:
         return found
+    try:
+        import imageio_ffmpeg
+
+        bundled = imageio_ffmpeg.get_ffmpeg_exe()
+        if bundled and Path(bundled).exists():
+            return bundled
+    except Exception:  # noqa: BLE001 - optional dependency
+        pass
     if getattr(sys, "frozen", False):
-        local = Path(sys.executable).parent / "ffmpeg" / "ffmpeg.exe"
-        candidates.append(str(local))
+        local_dir = Path(sys.executable).parent / "ffmpeg"
+        candidates.append(str(local_dir / "ffmpeg.exe"))
+        try:
+            for exe in sorted(local_dir.glob("ffmpeg*.exe")):
+                candidates.append(str(exe))
+                break
+        except Exception:  # noqa: BLE001
+            pass
     for pattern in (
         r"C:\ffmpeg\bin\ffmpeg.exe",
         r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
@@ -74,4 +89,15 @@ def wav_to_m4a(source_wav: Path, dest_m4a: Path) -> None:
         "-c:a", "aac",
         "-b:a", "192k",
         str(dest_m4a),
+    ])
+
+
+def mp3_to_wav(source_mp3: Path, dest_wav: Path,
+               sample_rate: int = 44100) -> None:
+    """Decode MP3 (e.g. EdgeTTS output) to mono WAV at *sample_rate*."""
+    run_ffmpeg([
+        "-i", str(source_mp3),
+        "-ar", str(sample_rate),
+        "-ac", "1",
+        str(dest_wav),
     ])

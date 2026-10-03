@@ -19,16 +19,16 @@ class AppSettings:
     autosave_seconds: int = 60
     default_project_dir: str = ""
 
-    # TTS / models (Gemini cloud voices - nothing is downloaded)
-    tts_engine: str = "gemini"
-    voice_id: str = "Charon"
+    # TTS: "edge" (free, keyless) or "gemini" (API key + billing).
+    tts_engine: str = "edge"
+    voice_id: str = "en-US-AriaNeural"
     voice_lock: bool = True
     # Gemini API key from https://aistudio.google.com/apikey.
     # Stored in the local settings file only, never logged or transmitted
     # anywhere except generativelanguage.googleapis.com.
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-pro-preview-tts"
-    dialogue_voice: str = "Puck"
+    dialogue_voice: str = "en-US-GuyNeural"
 
     # Performance
     prefer_gpu: bool = True

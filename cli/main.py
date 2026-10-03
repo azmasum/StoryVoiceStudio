@@ -23,10 +23,13 @@ from app.utils.errors import UserFacingError
 def _add_generate_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("script", help="Path to a UTF-8 text script")
     parser.add_argument("--project-name", default="")
-    parser.add_argument("--voice", default="Charon",
+    parser.add_argument("--voice", default="en-US-AriaNeural",
                         help="Narrator voice (see `voices`)")
-    parser.add_argument("--dialogue-voice", default="Puck",
+    parser.add_argument("--dialogue-voice", default="en-US-GuyNeural",
                         help="Voice for dialogue-heavy chunks")
+    parser.add_argument("--engine", default="edge",
+                        choices=["edge", "gemini"],
+                        help="edge = free/keyless, gemini = API key + billing")
     parser.add_argument("--model", default="gemini-2.5-pro-preview-tts",
                         help="Gemini TTS model")
     parser.add_argument("--wpm", type=int, default=155)
@@ -110,7 +113,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         voice_id=args.voice,
         dialogue_voice=args.dialogue_voice,
         gemini_model=args.model,
-        engine="gemini",
+        engine=args.engine,
         target_wpm=args.wpm,
         preset_key=args.preset,
         auto_emotion=auto_emotion or bool(forced_emotion),
@@ -187,13 +190,15 @@ def cmd_batch(args: argparse.Namespace) -> int:
 
 
 def cmd_voices(args: argparse.Namespace) -> int:
-    from tts.voices.gemini_catalog import CATALOG_VOICES
+    from tts.voices.catalog import voices_for_engine
 
-    print(f"{'VOICE':16} {'GENDER':7} {'CHARACTER':12}  LICENSE")
-    for entry in CATALOG_VOICES:
-        print(f"{entry['voice_id']:16} {entry['gender']:7} {entry['style']:12}  "
-              f"{entry['license']}")
-    print("\nCloud voices - no download needed. Needs a Gemini API key.")
+    for engine, title in (("edge", "EdgeTTS (free, no key)"),
+                          ("gemini", "Gemini (API key + billing)")):
+        print(f"\n{title}:")
+        print(f"{'VOICE':34} {'GENDER':7} {'CHARACTER':12}  LICENSE")
+        for entry in voices_for_engine(engine):
+            print(f"{entry['voice_id']:34} {entry['gender']:7} "
+                  f"{entry['style']:12}  {entry['license'][:60]}")
     return 0
 
 

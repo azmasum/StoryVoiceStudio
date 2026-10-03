@@ -20,10 +20,10 @@ FORMAT_VERSION = 2
 
 @dataclass
 class GenerationSettings:
-    voice_id: str = "Charon"
-    dialogue_voice: str = "Puck"
+    voice_id: str = "en-US-AriaNeural"
+    dialogue_voice: str = "en-US-GuyNeural"
     gemini_model: str = "gemini-2.5-pro-preview-tts"
-    tts_engine: str = "gemini"
+    tts_engine: str = "edge"
     target_wpm: int = 155
     preset: str = "DOCUMENTARY"
     auto_emotion: bool = True

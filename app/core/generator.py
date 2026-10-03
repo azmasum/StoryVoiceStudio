@@ -456,9 +456,35 @@ class GenerationPipeline:
             chunk.emotion or "NEUTRAL", self.options.preset_key,
             self.options.emotion_intensity)
 
-        # Gemini controls pace through style words, not a rate parameter,
-        # so the cache key carries style + model instead of a scale.
-        key = chunk_key_for(chunk, self.options)
+        engine = (self.options.engine or "edge").lower()
+        if engine == "edge":
+            # EdgeTTS takes real rate/pitch knobs: measure, aim, correct.
+            from emotion.prosody import (
+                clamp_length_scale,
+                plan_prosody,
+                wpm_to_length_scale,
+            )
+
+            natural = provider.natural_wpm(voice)
+            base_scale = wpm_to_length_scale(natural, chunk.wpm_target)
+            plan = plan_prosody(
+                emotion=chunk.emotion or "NEUTRAL",
+                effects=chunk.effects,
+                pause_before=chunk.pause_before,
+                pause_after=chunk.pause_after,
+                preset=self.preset,
+                global_intensity=self.options.emotion_intensity,
+            )
+            micro_rate = 1.0 + (_hash01("rate:" + chunk.text) - 0.5) * 0.04
+            emphasis_boost = 1.05 if "emphasis" in chunk.effects else 1.0
+            length_scale = clamp_length_scale(
+                base_scale * plan.length_scale * micro_rate * emphasis_boost)
+        else:
+            # Gemini steers pace through style words, not a rate parameter.
+            length_scale = 1.0
+
+        # Cache key carries scale + style + model.
+        key = chunk_key_for(chunk, self.options, length_scale)
         cached = self.cache.get(key)
         if cached is not None:
             log.debug("Cache hit for chunk %d", chunk.chunk_id)
@@ -471,11 +497,35 @@ class GenerationPipeline:
         if hasattr(provider, "synthesize_with_style"):
             result = provider.synthesize_with_style(
                 tts_text, tmp, voice, chunk.emotion or "NEUTRAL",
-                self.options.preset_key, self.options.emotion_intensity)
+                self.options.preset_key, self.options.emotion_intensity,
+                length_scale)
         else:  # duck-typed providers (tests)
             result = provider.synthesize(tts_text, tmp, voice,
-                                         length_scale=1.0)
-        _ = result
+                                         length_scale=length_scale)
+
+        # WPM consistency, once: EdgeTTS honors rate, so a drifting chunk
+        # is worth one correction. Gemini has no rate knob - never retry
+        # (each retry bills for zero benefit).
+        if engine == "edge" and not (meditation or psychology):
+            deviation = (
+                abs(result.actual_wpm - chunk.wpm_target) / chunk.wpm_target
+                if result.actual_wpm > 0 else 0.0
+            )
+            if deviation > 0.08 and result.actual_wpm > 0:
+                from emotion.prosody import clamp_length_scale as _clamp
+
+                corrected = _clamp(
+                    length_scale * result.actual_wpm / chunk.wpm_target)
+                retry = provider.synthesize_with_style(
+                    tts_text, tmp, voice, chunk.emotion or "NEUTRAL",
+                    self.options.preset_key, self.options.emotion_intensity,
+                    corrected)
+                retry_dev = (
+                    abs(retry.actual_wpm - chunk.wpm_target) / chunk.wpm_target
+                    if retry.actual_wpm > 0 else deviation
+                )
+                if retry_dev < deviation:
+                    result = retry
 
         _trim_chunk_tail(tmp)
         if meditation:
@@ -562,12 +612,21 @@ _SENTENCE_ENDINGS = tuple("।!?.；")
 EMPHASIS_GAIN_DB = 1.5
 
 
+def _hash01(key: str) -> float:
+    """Deterministic pseudo-random 0..1 (stable renders, cache-safe)."""
+    import hashlib
+
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
+    return int(digest, 16) / 0xFFFFFFFF
+
+
 def _chunk_gain(chunk: Chunk) -> float:
     """Emphasized spans sit slightly hotter in the mix."""
     return EMPHASIS_GAIN_DB if "emphasis" in chunk.effects else 0.0
 
 
-def chunk_key_for(chunk: Chunk, options: GenerationOptions) -> str:
+def chunk_key_for(chunk: Chunk, options: GenerationOptions,
+                  length_scale: float = 1.0) -> str:
     """Cache key for a chunk (shared by the pipeline and the UI)."""
     from emotion.gemini_style import is_dialogue_chunk, style_for_chunk
 
@@ -578,7 +637,7 @@ def chunk_key_for(chunk: Chunk, options: GenerationOptions) -> str:
         options.emotion_intensity)
     return chunk_cache_key(
         chunk.text, voice, options.engine,
-        1.0, chunk.wpm_target, chunk.emotion,
+        length_scale, chunk.wpm_target, chunk.emotion,
         character=options.voice_character,
         effects=tuple(sorted(chunk.effects)),
         style=style,

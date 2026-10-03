@@ -1,9 +1,11 @@
 # StoryVoice Studio runtime dependencies (Windows / Python 3.10+)
-# Narration runs on the Google Gemini API via stdlib urllib - no TTS
-# engine packages needed.
+# Narration: EdgeTTS (free, keyless) via edge-tts + imageio-ffmpeg (mp3
+# decode + MP3 export without a system FFmpeg); Gemini API via stdlib.
 PySide6>=6.6
 numpy>=1.24
 scipy>=1.10
 soundfile>=0.12
 pyloudnorm>=0.1.1
 appdirs>=1.4.4
+edge-tts>=7.0
+imageio-ffmpeg>=0.5

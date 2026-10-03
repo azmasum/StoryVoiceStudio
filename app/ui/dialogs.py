@@ -35,19 +35,25 @@ class _SampleThread(QThread):
         try:
             import tempfile
 
-            from tts.manager import get_configured_provider
+            from tts.manager import get_provider
+            from tts.voices.catalog import get_engine
 
-            provider = get_configured_provider()
-            if hasattr(provider, "configure"):
+            engine = get_engine(self.voice)
+            provider = get_provider(engine)
+            if engine == "gemini" and hasattr(provider, "configure"):
                 from app.config.settings import load_settings
 
                 settings = load_settings()
                 provider.configure(settings.gemini_api_key,
                                    self.model or settings.gemini_model)
             out = Path(tempfile.gettempdir()) / f"svs-sample-{self.voice}.wav"
-            provider.synthesize_with_style(
-                "Hello! This is a short voice sample for your story.",
-                out, self.voice, "NEUTRAL", "DOCUMENTARY", 0.7)
+            if hasattr(provider, "synthesize_with_style"):
+                provider.synthesize_with_style(
+                    "Hello! This is a short voice sample for your story.",
+                    out, self.voice, "NEUTRAL", "DOCUMENTARY", 0.7)
+            else:
+                provider.synthesize(
+                    "Hello! This is a short voice sample.", out, self.voice)
             self.done.emit(str(out))
         except Exception as error:  # noqa: BLE001
             from app.utils.errors import report_exception
@@ -70,8 +76,9 @@ class ModelManagerDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
-            "<b>Gemini cloud voices</b> - 30 studio voices, nothing to "
-            "download. Billed by Google per AI Studio pricing."))
+            "<b>38 voices, two engines</b> - EdgeTTS is free with no key; "
+            "Gemini voices need an API key and are billed by Google. "
+            "Nothing to download."))
 
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
@@ -262,19 +269,17 @@ class FirstRunWizard(QDialog):
         self.hardware = hardware
         browser.setHtml(
             "<h3>Welcome!</h3>"
-            "<p>StoryVoice Studio narrates your stories with "
-            "Google Gemini voices - natural, expressive, and controllable "
-            "in 70+ languages including Bengali.</p>"
-            "<h4>One-time setup</h4>"
-            "<ol>"
-            '<li>Get a free API key at <a href="https://aistudio.google.com/apikey">'
-            "AI Studio</a>.</li>"
-            "<li>Paste it in the Voice panel's <b>API key</b> field "
-            "(stored on this PC only).</li>"
-            "<li>Pick a narrator voice and press GENERATE.</li>"
-            "</ol>"
-            "<p>Usage is billed by Google per AI Studio pricing - a typical "
-            "10-minute story costs a few cents. Audio carries a SynthID "
-            "watermark applied by Google.</p>"
+            "<p>StoryVoice Studio narrates your stories with natural AI "
+            "voices - in English, Bengali and 70+ more languages.</p>"
+            "<h4>Free path (recommended)</h4>"
+            "<p>Just press OK: the built-in EdgeTTS engine is completely "
+            "free, no key and no billing. Pick a voice and press "
+            "GENERATE.</p>"
+            "<h4>Premium path (optional)</h4>"
+            "<p>For Gemini studio voices, get a key at "
+            '<a href="https://aistudio.google.com/apikey">AI Studio</a> '
+            "and paste it into the Voice panel's <b>API key</b> field, then "
+            "switch Engine to Gemini. Usage is billed by Google - a typical "
+            "10-minute story costs a few cents.</p>"
             f"<p style='color:#d9a441'>{COMMERCIAL_WARNING}</p>"
         )

@@ -285,8 +285,10 @@ class GeminiTTSProvider(TTSProvider):
         emotion: str = "NEUTRAL",
         preset_key: str = "DOCUMENTARY",
         intensity: float = 0.7,
-    ) -> SynthesisResult:
+        length_scale: float = 1.0,  # accepted for a uniform interface;
+    ) -> SynthesisResult:  # pace is steered through style words instead.
         """Synthesize with an emotion/preset style direction."""
+        _ = length_scale
         from tts.voices.gemini_catalog import get_voice as _get_voice
 
         if _get_voice(voice_id) is None:

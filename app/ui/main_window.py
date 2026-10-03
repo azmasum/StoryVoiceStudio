@@ -490,7 +490,9 @@ class MainWindow(QMainWindow):
         self._start_worker(preview_seconds=30.0)
 
     def _ensure_api_key(self) -> bool:
-        """Returns True when generation must stop (no API key)."""
+        """Returns True when generation must stop (no API key for Gemini)."""
+        if self.controls.current_engine() != "gemini":
+            return False  # EdgeTTS is free and keyless
         from app.config.settings import load_settings
 
         if load_settings().gemini_api_key.strip():

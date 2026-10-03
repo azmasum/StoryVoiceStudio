@@ -4,6 +4,21 @@ All notable changes to StoryVoice Studio are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] - free voices
+
+### Added
+- EdgeTTS engine (default): completely free, keyless neural narration —
+  8 voices incl. Bangladeshi Bengali (Nabanita, Pradeep), with real
+  rate (±30%) and pitch (±40 Hz) emotion control and WPM targeting +
+  correction. MP3 output decoded locally via bundled FFmpeg (which also
+  makes MP3 export work out of the box).
+- Engine switch (EdgeTTS free / Gemini premium) in the Voice panel, CLI
+  `--engine`, per-engine voice lists and defaults.
+
+### Changed
+- Gemini is now the optional premium path (API key + billing) instead of
+  the only engine.
+
 ## [0.2.0] - Gemini rebuild
 
 Complete rebuild around the Google Gemini TTS API

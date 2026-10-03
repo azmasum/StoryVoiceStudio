@@ -1,19 +1,16 @@
 # User Guide
 
-StoryVoice Studio turns your written stories into professional narration
-with Google Gemini voices.
+StoryVoice Studio turns your written stories into professional narration —
+free with the built-in EdgeTTS engine, premium with Gemini voices.
 
 ## 1. First launch
 
-1. Get a free API key at
-   [AI Studio](https://aistudio.google.com/apikey).
-2. Paste it into the Voice panel's **API key** field (stored on this PC
-   only, never logged).
-3. Pick a narrator voice (default **Charon**) and press OK.
-
-Usage is billed by Google per AI Studio pricing — a typical 10-minute
-story costs a few cents. Every generation shows its characters + audio
-minutes.
+No setup needed for free voices: pick a narrator voice and press
+**GENERATE AUDIO**. (For Gemini: get a key at
+[AI Studio](https://aistudio.google.com/apikey), paste it into the Voice
+panel's **API key** field, switch Engine to Gemini. Usage is billed by
+Google — a typical 10-minute story costs a few cents; every generation
+shows its characters + audio minutes.)
 
 ## 2. Writing your script
 
@@ -41,14 +38,16 @@ pronunciations to `assets/pronunciations.json`.
 - **Preset**: Documentary, Horror, Mystery, True Crime, Emotional,
   Motivational, Romance, Sci-Fi, Historical, Bedtime, Dark Story, Cinematic.
   Each sets WPM, pause length, emotion intensity, music mood and mastering.
-- **Voice**: 30 Gemini studio voices. **Narrator** reads the story;
-  **Dialogue** (default Puck) reads dialogue-heavy chunks — pick clearly
-  different timbres so speakers stay distinct. Browse + audition all 30 in
+- **Engine**: EdgeTTS (free, no key) or Gemini (API key + billing).
+- **Voice**: 8 EdgeTTS voices incl. Bangladeshi Bengali (Nabanita,
+  Pradeep), or 30 Gemini studio voices. **Narrator** reads the story;
+  **Dialogue** reads dialogue-heavy chunks — pick clearly different
+  timbres so speakers stay distinct. Browse + audition all in
   **Voices → Browse Voices**.
-- **Model**: `gemini-2.5-pro-preview-tts` (best quality) or
+- **Model** (Gemini only): `gemini-2.5-pro-preview-tts` (best quality) or
   `gemini-2.5-flash-preview-tts` (faster/cheaper).
-- **WPM**: target speaking rate estimate (120–180). Pace is steered with
-  style directions since the API has no rate knob.
+- **WPM**: target speaking rate estimate (120–180). EdgeTTS steers real
+  rate/pitch; Gemini steers pace with style directions.
 
 ## 4. Music
 

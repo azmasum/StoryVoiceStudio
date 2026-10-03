@@ -177,7 +177,7 @@ def test_manager_routes_gemini():
     from tts.manager import available_engines, get_provider
     from tts.providers.gemini_provider import GeminiTTSProvider
 
-    assert available_engines() == ["gemini"]
+    assert available_engines() == ["edge", "gemini"]
     assert isinstance(get_provider("gemini"), GeminiTTSProvider)
     with pytest.raises(ValueError):
         get_provider("piper")
