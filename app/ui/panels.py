@@ -65,6 +65,16 @@ class ControlsPanel(QWidget):
         self.usage_label = QLabel("Usage this session: -")
         self.usage_label.setWordWrap(True)
         voice_form.addRow(self.usage_label)
+        self.pacing_spin = QDoubleSpinBox()
+        self.pacing_spin.setRange(0.0, 30.0)
+        self.pacing_spin.setValue(4.0)
+        self.pacing_spin.setDecimals(0)
+        self.pacing_spin.setSuffix(" s")
+        self.pacing_spin.setToolTip(
+            "Pause between API requests. Raise this if you hit quota "
+            "errors (429) on the free tier; 0 disables pacing.")
+        self.pacing_spin.valueChanged.connect(self.settings_changed)
+        voice_form.addRow("API pacing:", self.pacing_spin)
         self.voice_lock = QCheckBox("Voice lock")
         self.voice_lock.setToolTip(
             "Keep the same voices consistently across all chunks.")
@@ -309,6 +319,8 @@ class ControlsPanel(QWidget):
         from app.config.settings import load_settings
 
         self.api_key_edit.setText(load_settings().gemini_api_key)
+        self.pacing_spin.setValue(float(getattr(
+            settings, "api_pacing_seconds", 4.0)))
 
     def collect_settings(self, script_text: str = "") -> GenerationSettings:
         return GenerationSettings(
@@ -332,4 +344,5 @@ class ControlsPanel(QWidget):
             export_format=self.format_combo.currentText(),
             export_stems=self.export_stems.isChecked(),
             voice_character=self.character_combo.currentData() or "standard",
+            api_pacing_seconds=float(self.pacing_spin.value()),
         )

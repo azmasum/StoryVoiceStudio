@@ -49,6 +49,7 @@ class GenerationOptions:
     auto_emotion: bool = True
     emotion_intensity: float = 0.7
     words_per_chunk: int = 45
+    api_pacing_seconds: float = 4.0  # delay between cloud TTS requests
     music_path: str = ""
     music_gain_db: float = -18.0
     ducking_db: float = 9.0
@@ -84,6 +85,7 @@ class GenerationOptions:
             auto_emotion=settings.auto_emotion,
             emotion_intensity=settings.emotion_intensity,
             words_per_chunk=settings.words_per_chunk,
+            api_pacing_seconds=getattr(settings, "api_pacing_seconds", 4.0),
             music_path=settings.music_path if settings.music_enabled else "",
             music_gain_db=settings.music_gain_db,
             ducking_db=settings.ducking_db,
@@ -257,6 +259,7 @@ class GenerationPipeline:
             wav_path = self._synthesize_chunk(provider, chunk)
             chunk.audio_path = str(wav_path)
             chunk.status = "done"
+            self._pace_api_calls(done + 1, len(chunks))
             duration = _wav_duration(wav_path)
             voice_events.append(TrackEvent(
                 path=str(wav_path),
@@ -420,6 +423,24 @@ class GenerationPipeline:
         return outcome
 
     # -- helpers ----------------------------------------------------------------
+
+    def _pace_api_calls(self, done_count: int, total: int) -> None:
+        """Wait between cloud requests so free-tier limits survive.
+
+        Sleeps in short steps so Cancel stays responsive; skipped after
+        the final chunk.
+        """
+        delay = max(0.0, float(self.options.api_pacing_seconds or 0.0))
+        if delay <= 0 or done_count >= total:
+            return
+        self._report(message=f"Chunk {done_count}/{total} done - "
+                             f"pacing API ({delay:.0f}s)...")
+        waited = 0.0
+        while waited < delay:
+            self._check_control()
+            step = min(0.2, delay - waited)
+            time.sleep(step)
+            waited += step
 
     def _synthesize_chunk(self, provider, chunk: Chunk):
         """Synthesize one chunk through cache (cloud API: every miss bills)."""

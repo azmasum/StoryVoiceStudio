@@ -45,6 +45,8 @@ def _add_generate_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--stems", action="store_true")
     parser.add_argument("--preview-seconds", type=float, default=0.0)
     parser.add_argument("--out-dir", default="", help="Directory for the project")
+    parser.add_argument("--api-pacing", type=float, default=4.0,
+                        help="Seconds between API requests (free-tier quota)")
     parser.add_argument("--api-key", default="",
                         help="Gemini API key (or GEMINI_API_KEY env)")
 
@@ -113,6 +115,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         preset_key=args.preset,
         auto_emotion=auto_emotion or bool(forced_emotion),
         emotion_intensity=args.intensity,
+        api_pacing_seconds=args.api_pacing,
         music_path=args.music,
         music_gain_db=args.music_gain_db,
         ducking_db=args.ducking_db,

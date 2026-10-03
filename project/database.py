@@ -30,6 +30,8 @@ class GenerationSettings:
     emotion_intensity: float = 0.7
     voice_lock: bool = True
     words_per_chunk: int = 45
+    # Seconds to wait between cloud TTS requests (free-tier rate limits).
+    api_pacing_seconds: float = 4.0
 
     # Music / mix
     music_enabled: bool = False

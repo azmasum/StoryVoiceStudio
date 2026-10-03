@@ -209,3 +209,60 @@ def test_dialogue_chunks_route_to_dialogue_voice():
                      index_in_scene=1,
                      text='"Why now?" John asked quietly. "Because I said so."')
     assert chunk_key_for(narration, options) != chunk_key_for(dialogue, options)
+
+
+def test_429_body_is_parsed_to_short_reason(monkeypatch):
+    from app.utils.errors import UserFacingError
+    from tts.providers.gemini_provider import GeminiTTSClient
+
+    body = json.dumps({"error": {
+        "code": 429,
+        "message": "You exceeded your current quota.",
+        "status": "RESOURCE_EXHAUSTED",
+    }})
+
+    def fake_urlopen(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url, 429, "too many", {}, io.BytesIO(body.encode()))
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    client = GeminiTTSClient("k", "gemini-2.5-pro-preview-tts")
+    with pytest.raises(UserFacingError) as exc:
+        client.synthesize_pcm("Hi.", "Kore")
+    assert exc.value.why == "You exceeded your current quota."
+    assert any("pacing" in a for a in exc.value.actions)
+
+
+def test_api_pacing_between_chunks(monkeypatch, tmp_path):
+    from app.core.generator import GenerationOptions, GenerationPipeline
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: sleeps.append(s))
+
+    options = GenerationOptions(voice_id="Charon", auto_emotion=False,
+                                api_pacing_seconds=4.0)
+    pipeline = GenerationPipeline("PaceTest", tmp_path, options)
+    pipeline._pace_api_calls(1, 3)  # between chunks: sleeps ~4s total
+    assert sleeps and abs(sum(sleeps) - 4.0) < 0.01
+    sleeps.clear()
+    pipeline._pace_api_calls(3, 3)  # after final chunk: no sleep
+    assert sleeps == []
+    options.api_pacing_seconds = 0.0
+    pipeline._pace_api_calls(1, 3)  # pacing disabled: no sleep
+    assert sleeps == []
+
+
+def test_pacing_sleep_is_cancellable(monkeypatch, tmp_path):
+    from app.core.generator import (
+        CancelledError,
+        GenerationOptions,
+        GenerationPipeline,
+    )
+
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    options = GenerationOptions(api_pacing_seconds=30.0)
+    pipeline = GenerationPipeline("CancelPace", tmp_path, options)
+    pipeline.cancel()
+    with pytest.raises(CancelledError):
+        pipeline._pace_api_calls(1, 5)

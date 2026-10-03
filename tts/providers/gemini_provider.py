@@ -44,8 +44,22 @@ class GeminiAPIError(UserFacingError):
     pass
 
 
+def _short_reason(body: str, limit: int = 220) -> str:
+    """Pull the human message out of a Google JSON error body."""
+    text = body.strip()
+    if text.startswith("{"):
+        try:
+            message = json.loads(text).get("error", {}).get("message", "")
+            if message:
+                text = str(message)
+        except Exception:  # noqa: BLE001 - fall back to raw body
+            pass
+    text = " ".join(text.split())
+    return text[:limit] if len(text) > limit else text
+
+
 def _friendly_http_error(status: int, body: str, model: str) -> GeminiAPIError:
-    snippet = body[:300].replace("\n", " ")
+    snippet = _short_reason(body)
     if status in (400, 401, 403):
         return GeminiAPIError(
             what="Gemini API rejected the request.",
@@ -69,9 +83,11 @@ def _friendly_http_error(status: int, body: str, model: str) -> GeminiAPIError:
     if status == 429:
         return GeminiAPIError(
             what="Gemini API quota exhausted.",
-            why=f"HTTP 429: {snippet or 'too many requests'}.",
+            why=snippet or "Too many requests.",
             actions=[
                 "Wait a minute and run generation again.",
+                "Raise 'API pacing' in the Voice panel (slower = fewer "
+                "429s on the free tier).",
                 "Enable billing in AI Studio for higher limits.",
                 "Generate in smaller batches (Preview renders).",
             ],
